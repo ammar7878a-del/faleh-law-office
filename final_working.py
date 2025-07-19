@@ -3827,16 +3827,26 @@ def client_documents(client_id):
             const extension = filename.split('.').pop().toLowerCase();
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-            // للصور - استخدام route التحميل مع معاملات مختلفة
+            // للصور - استخدام route التحميل مباشرة (حل مؤقت)
             setTimeout(() => {
                 previewContent.innerHTML = `
                     <div class="text-center">
-                        <img src="/simple_preview/${docId}"
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle"></i> جاري تحميل الصورة...
+                        </div>
+                        <img src="/documents/${docId}/download"
                              class="img-fluid"
                              style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
                              alt="${filename}"
-                             onload="console.log('Image loaded successfully')"
-                             onerror="console.error('Image failed to load'); this.src='/documents/${docId}/download'; console.log('Trying download route as fallback');">
+                             onload="console.log('Image loaded successfully'); this.previousElementSibling.style.display='none';"
+                             onerror="console.error('Image failed to load'); this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <div class="alert alert-warning" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            لا يمكن عرض الصورة.
+                            <a href="/documents/${docId}/download" class="btn btn-sm btn-primary ms-2">
+                                <i class="fas fa-download"></i> تحميل الملف
+                            </a>
+                        </div>
                         <div class="mt-2">
                             <small class="text-muted">اسم الملف: ${filename}</small>
                         </div>
@@ -3848,7 +3858,7 @@ def client_documents(client_id):
             setTimeout(() => {
                 previewContent.innerHTML = `
                     <div class="text-center">
-                        <iframe src="/documents/${docId}/view"
+                        <iframe src="/documents/${docId}/download"
                                 width="100%"
                                 height="400px"
                                 style="border: 1px solid #ddd; border-radius: 5px;"
@@ -3858,6 +3868,11 @@ def client_documents(client_id):
                                <a href="/documents/${docId}/download">انقر هنا لتحميل الملف</a>
                             </p>
                         </iframe>
+                        <div class="mt-2">
+                            <a href="/documents/${docId}/download" class="btn btn-primary btn-sm" target="_blank">
+                                <i class="fas fa-external-link-alt"></i> فتح في نافذة جديدة
+                            </a>
+                        </div>
                         <div class="mt-2">
                             <small class="text-muted">اسم الملف: ${filename}</small>
                         </div>
