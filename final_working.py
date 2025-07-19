@@ -27,7 +27,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # إعدادات رفع الملفات - للخادم السحابي
 # استخدام مجلد uploads في نفس مجلد التطبيق
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+try:
+    CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    # في حالة تشغيل الكود من سطر الأوامر
+    CURRENT_DIR = os.getcwd()
 UPLOAD_FOLDER = os.path.join(CURRENT_DIR, 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -523,55 +527,114 @@ def get_navbar_brand():
 #     return User.query.get(int(user_id))
 
 @app.route('/simple_file/<path:filename>')
+@app.route('/uploads/<path:filename>')
 def simple_file(filename):
     """طريقة بسيطة لعرض الملفات - بدون تسجيل دخول للاختبار"""
     try:
         print(f"🔍 Simple file request: {filename}")
+
+        # التحقق من صحة اسم الملف
+        if not filename or filename.strip() == '':
+            print("❌ Empty filename provided")
+            return "اسم الملف فارغ", 400
 
         # فك ترميز اسم الملف إذا كان مُرمز
         import urllib.parse
         try:
             decoded_filename = urllib.parse.unquote(filename, encoding='utf-8')
             print(f"📝 Decoded filename: {decoded_filename}")
-        except:
+        except Exception as e:
+            print(f"❌ Error decoding filename: {e}")
             decoded_filename = filename
             print(f"📝 Using original filename: {filename}")
 
-        upload_folder = app.config['UPLOAD_FOLDER']
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        if not upload_folder:
+            upload_folder = 'uploads'
         print(f"📁 Upload folder: {upload_folder}")
+
+        # التأكد من أن المجلد موجود
+        if not os.path.exists(upload_folder):
+            print(f"❌ Upload folder does not exist: {upload_folder}")
+            # محاولة إنشاء المجلد
+            try:
+                os.makedirs(upload_folder, exist_ok=True)
+                print(f"✅ Created upload folder: {upload_folder}")
+            except Exception as e:
+                print(f"❌ Failed to create upload folder: {e}")
+                return f"خطأ: لا يمكن الوصول لمجلد الملفات", 500
 
         # البحث باستخدام الاسم الأصلي والمُفكك
         search_names = [filename, decoded_filename]
+
+        # إضافة أشكال مختلفة من اسم الملف للبحث
+        additional_names = []
+        try:
+            # محاولة ترميزات مختلفة
+            import urllib.parse
+            additional_names.append(urllib.parse.quote(filename, safe=''))
+            additional_names.append(urllib.parse.quote(decoded_filename, safe=''))
+            # إزالة المكررات
+            search_names.extend([name for name in additional_names if name not in search_names])
+        except Exception as e:
+            print(f"⚠️ Error creating additional search names: {e}")
+
+        print(f"🔍 Search names: {search_names}")
         file_path = None
 
+        # قائمة المجلدات للبحث فيها
+        search_folders = [
+            upload_folder,  # المجلد الرئيسي
+            os.path.join(upload_folder, 'documents'),  # مجلد المستندات
+            os.path.join(upload_folder, 'logos'),  # مجلد الشعارات
+        ]
+
+        print(f"📁 Search folders: {search_folders}")
+
         for search_name in search_names:
-            # البحث في المجلد الرئيسي أولاً
-            test_path = os.path.join(upload_folder, search_name)
-            print(f"🔍 Checking: {test_path}")
-            if os.path.exists(test_path):
-                file_path = test_path
-                print(f"✅ Found at: {test_path}")
-                break
+            print(f"🔍 Searching for: {search_name}")
 
-            # إذا لم يوجد، ابحث في مجلد documents
-            test_path = os.path.join(upload_folder, 'documents', search_name)
-            print(f"🔍 Checking: {test_path}")
-            if os.path.exists(test_path):
-                file_path = test_path
-                print(f"✅ Found at: {test_path}")
-                break
-
-            # إذا لم يوجد، ابحث في جميع المجلدات الفرعية
-            for root, dirs, files in os.walk(upload_folder):
-                if search_name in files:
-                    file_path = os.path.join(root, search_name)
-                    print(f"✅ Found at: {file_path}")
-                    break
+            # البحث في المجلدات المحددة أولاً
+            for folder in search_folders:
+                if os.path.exists(folder):
+                    test_path = os.path.join(folder, search_name)
+                    print(f"🔍 Checking: {test_path}")
+                    if os.path.exists(test_path):
+                        file_path = test_path
+                        print(f"✅ Found at: {test_path}")
+                        break
+                else:
+                    print(f"📁 Folder does not exist: {folder}")
 
             if file_path:
                 break
 
-        if os.path.exists(file_path):
+            # إذا لم يوجد، ابحث في جميع المجلدات الفرعية
+            print(f"🔍 Searching recursively in: {upload_folder}")
+            try:
+                for root, dirs, files in os.walk(upload_folder):
+                    if search_name in files:
+                        file_path = os.path.join(root, search_name)
+                        print(f"✅ Found recursively at: {file_path}")
+                        break
+            except Exception as e:
+                print(f"❌ Error during recursive search: {e}")
+
+            if file_path:
+                break
+
+        if not file_path:
+            print(f"❌ File not found: {filename}")
+            print(f"📁 Upload folder contents:")
+            try:
+                for root, dirs, files in os.walk(upload_folder):
+                    print(f"  📁 {root}: {files}")
+            except Exception as e:
+                print(f"❌ Error listing folder contents: {e}")
+            return f"الملف غير موجود: {filename}", 404
+
+        if file_path and os.path.exists(file_path):
+            print(f"✅ File found and exists: {file_path}")
             filename_lower = filename.lower()
 
             # للملفات التي لا يمكن عرضها في المتصفح، أعرض صفحة تحذيرية
@@ -693,12 +756,22 @@ def simple_file(filename):
 
             return response
         else:
+            # الملف غير موجود أو file_path هو None
+            print(f"❌ File not found or file_path is None")
+            print(f"📝 file_path value: {file_path}")
+            print(f"📝 filename: {filename}")
+            print(f"📝 decoded_filename: {decoded_filename}")
+
             # إرجاع قائمة بالملفات الموجودة للمساعدة في التشخيص
             available_files = []
-            for root, dirs, files in os.walk(upload_folder):
-                for file in files:
-                    rel_path = os.path.relpath(os.path.join(root, file), upload_folder)
-                    available_files.append(rel_path)
+            try:
+                for root, dirs, files in os.walk(upload_folder):
+                    for file in files:
+                        rel_path = os.path.relpath(os.path.join(root, file), upload_folder)
+                        available_files.append(rel_path)
+            except Exception as e:
+                print(f"❌ Error listing files: {e}")
+                available_files = ["خطأ في قراءة الملفات"]
 
             print(f"❌ File not found: {filename}")
             print(f"📁 Available files: {available_files[:10]}")  # أول 10 ملفات فقط
@@ -721,15 +794,27 @@ def simple_file(filename):
 
     except Exception as e:
         print(f"❌ Error in simple_file: {str(e)}")
+        print(f"📝 Error type: {type(e).__name__}")
         import traceback
         traceback.print_exc()
+
+        # محاولة الحصول على معلومات إضافية
+        try:
+            upload_folder_info = app.config.get('UPLOAD_FOLDER', 'غير محدد')
+            upload_exists = os.path.exists(upload_folder_info) if upload_folder_info else False
+        except:
+            upload_folder_info = "خطأ في القراءة"
+            upload_exists = False
 
         return f"""
         <html dir="rtl">
         <head><title>خطأ في الملف</title></head>
         <body style="font-family: Arial; padding: 20px;">
             <h3>❌ خطأ في عرض الملف</h3>
-            <p><strong>اسم الملف:</strong> {filename}</p>
+            <p><strong>اسم الملف:</strong> {filename if 'filename' in locals() else 'غير محدد'}</p>
+            <p><strong>مجلد الرفع:</strong> {upload_folder_info}</p>
+            <p><strong>المجلد موجود:</strong> {upload_exists}</p>
+            <p><strong>نوع الخطأ:</strong> {type(e).__name__}</p>
             <p><strong>تفاصيل الخطأ:</strong> {str(e)}</p>
             <a href="javascript:history.back()">العودة</a>
         </body>
