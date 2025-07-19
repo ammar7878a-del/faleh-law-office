@@ -4140,9 +4140,10 @@ def client_documents(client_id):
         try {
             console.log('showQuickPreview called with:', docId, filename);
 
-            // التحقق من وجود Bootstrap
+            // التحقق من وجود Bootstrap - إذا لم يكن متاحاً، استخدم modal بسيط
             if (typeof bootstrap === 'undefined') {
-                alert('خطأ: Bootstrap غير محمل');
+                console.log('Bootstrap غير متاح، استخدام modal بسيط');
+                showSimplePreview(docId, filename);
                 return;
             }
 
@@ -4250,6 +4251,169 @@ def client_documents(client_id):
         } catch (error) {
             console.error('خطأ في showQuickPreview:', error);
             alert('حدث خطأ في عرض المعاينة: ' + error.message);
+        }
+    }
+
+    // دالة معاينة بسيطة بدون Bootstrap
+    function showSimplePreview(docId, filename) {
+        try {
+            // إنشاء overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+            `;
+
+            // إنشاء محتوى المعاينة
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 90%;
+                max-height: 90%;
+                overflow: auto;
+                position: relative;
+                cursor: default;
+                direction: rtl;
+                text-align: center;
+            `;
+
+            // زر الإغلاق
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 15px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            // محتوى الملف
+            const fileContent = document.createElement('div');
+            fileContent.style.cssText = `
+                text-align: center;
+                padding: 20px;
+                min-height: 200px;
+            `;
+
+            // عرض loading أولاً
+            fileContent.innerHTML = '<div style="padding: 40px;"><p>جاري التحميل...</p></div>';
+
+            // تحديد نوع الملف وعرضه
+            const fileExt = filename.split('.').pop().toLowerCase();
+
+            setTimeout(() => {
+                if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt)) {
+                    const img = document.createElement('img');
+                    img.src = '/simple_file/' + filename;
+                    img.style.cssText = 'max-width: 100%; max-height: 70vh; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+                    img.onload = function() {
+                        fileContent.innerHTML = '';
+                        fileContent.appendChild(img);
+                    };
+                    img.onerror = function() {
+                        fileContent.innerHTML = `
+                            <div style="padding: 40px; color: #dc3545;">
+                                <h4>⚠️ خطأ في تحميل الصورة</h4>
+                                <p>اسم الملف: ${filename}</p>
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح في نافذة جديدة
+                                </a>
+                            </div>
+                        `;
+                    };
+                } else if (fileExt === 'pdf') {
+                    fileContent.innerHTML = `
+                        <div style="padding: 20px;">
+                            <iframe src="/simple_file/${filename}"
+                                    style="width: 80vw; height: 70vh; border: 1px solid #ddd; border-radius: 4px;"
+                                    onload="console.log('PDF loaded')"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            </iframe>
+                            <div style="display: none; padding: 40px; color: #dc3545;">
+                                <h4>⚠️ لا يمكن عرض ملف PDF</h4>
+                                <p>اسم الملف: ${filename}</p>
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح في نافذة جديدة
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    fileContent.innerHTML = `
+                        <div style="padding: 40px;">
+                            <h4>📄 معاينة الملف</h4>
+                            <p><strong>اسم الملف:</strong> ${filename}</p>
+                            <p><strong>نوع الملف:</strong> ${fileExt.toUpperCase()}</p>
+                            <div style="margin-top: 20px;">
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح الملف
+                                </a>
+                                <a href="/simple_file/${filename}" download
+                                   style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    تحميل الملف
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 300);
+
+            // تجميع العناصر
+            content.appendChild(closeBtn);
+            content.appendChild(fileContent);
+            overlay.appendChild(content);
+            document.body.appendChild(overlay);
+
+            // إغلاق عند النقر على الخلفية
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            });
+
+            // إغلاق عند النقر على زر الإغلاق
+            closeBtn.addEventListener('click', function() {
+                document.body.removeChild(overlay);
+            });
+
+            // إغلاق بمفتاح Escape
+            const escapeHandler = function(e) {
+                if (e.key === 'Escape') {
+                    if (document.body.contains(overlay)) {
+                        document.body.removeChild(overlay);
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+
+        } catch (error) {
+            console.error('خطأ في showSimplePreview:', error);
+            // fallback: فتح في نافذة جديدة
+            window.open('/simple_file/' + filename, '_blank');
         }
     }
     </script>
@@ -5184,9 +5348,10 @@ def edit_client(client_id):
         try {
             console.log('showQuickPreview called with:', docId, filename);
 
-            // التحقق من وجود Bootstrap
+            // التحقق من وجود Bootstrap - إذا لم يكن متاحاً، استخدم modal بسيط
             if (typeof bootstrap === 'undefined') {
-                alert('خطأ: Bootstrap غير محمل');
+                console.log('Bootstrap غير متاح، استخدام modal بسيط');
+                showSimplePreview(docId, filename);
                 return;
             }
 
@@ -5264,6 +5429,169 @@ def edit_client(client_id):
         } catch (error) {
             console.error('خطأ في showQuickPreview:', error);
             alert('حدث خطأ في عرض المعاينة: ' + error.message);
+        }
+    }
+
+    // دالة معاينة بسيطة بدون Bootstrap (نسخة للحالات)
+    function showSimplePreview(docId, filename) {
+        try {
+            // إنشاء overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 9999;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+            `;
+
+            // إنشاء محتوى المعاينة
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 20px;
+                max-width: 90%;
+                max-height: 90%;
+                overflow: auto;
+                position: relative;
+                cursor: default;
+                direction: rtl;
+                text-align: center;
+            `;
+
+            // زر الإغلاق
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 15px;
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            // محتوى الملف
+            const fileContent = document.createElement('div');
+            fileContent.style.cssText = `
+                text-align: center;
+                padding: 20px;
+                min-height: 200px;
+            `;
+
+            // عرض loading أولاً
+            fileContent.innerHTML = '<div style="padding: 40px;"><p>جاري التحميل...</p></div>';
+
+            // تحديد نوع الملف وعرضه
+            const fileExt = filename.split('.').pop().toLowerCase();
+
+            setTimeout(() => {
+                if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt)) {
+                    const img = document.createElement('img');
+                    img.src = '/simple_file/' + filename;
+                    img.style.cssText = 'max-width: 100%; max-height: 70vh; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
+                    img.onload = function() {
+                        fileContent.innerHTML = '';
+                        fileContent.appendChild(img);
+                    };
+                    img.onerror = function() {
+                        fileContent.innerHTML = `
+                            <div style="padding: 40px; color: #dc3545;">
+                                <h4>⚠️ خطأ في تحميل الصورة</h4>
+                                <p>اسم الملف: ${filename}</p>
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح في نافذة جديدة
+                                </a>
+                            </div>
+                        `;
+                    };
+                } else if (fileExt === 'pdf') {
+                    fileContent.innerHTML = `
+                        <div style="padding: 20px;">
+                            <iframe src="/simple_file/${filename}"
+                                    style="width: 80vw; height: 70vh; border: 1px solid #ddd; border-radius: 4px;"
+                                    onload="console.log('PDF loaded')"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            </iframe>
+                            <div style="display: none; padding: 40px; color: #dc3545;">
+                                <h4>⚠️ لا يمكن عرض ملف PDF</h4>
+                                <p>اسم الملف: ${filename}</p>
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح في نافذة جديدة
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    fileContent.innerHTML = `
+                        <div style="padding: 40px;">
+                            <h4>📄 معاينة الملف</h4>
+                            <p><strong>اسم الملف:</strong> ${filename}</p>
+                            <p><strong>نوع الملف:</strong> ${fileExt.toUpperCase()}</p>
+                            <div style="margin-top: 20px;">
+                                <a href="/simple_file/${filename}" target="_blank"
+                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    فتح الملف
+                                </a>
+                                <a href="/simple_file/${filename}" download
+                                   style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                    تحميل الملف
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 300);
+
+            // تجميع العناصر
+            content.appendChild(closeBtn);
+            content.appendChild(fileContent);
+            overlay.appendChild(content);
+            document.body.appendChild(overlay);
+
+            // إغلاق عند النقر على الخلفية
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            });
+
+            // إغلاق عند النقر على زر الإغلاق
+            closeBtn.addEventListener('click', function() {
+                document.body.removeChild(overlay);
+            });
+
+            // إغلاق بمفتاح Escape
+            const escapeHandler = function(e) {
+                if (e.key === 'Escape') {
+                    if (document.body.contains(overlay)) {
+                        document.body.removeChild(overlay);
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+
+        } catch (error) {
+            console.error('خطأ في showSimplePreview:', error);
+            // fallback: فتح في نافذة جديدة
+            window.open('/simple_file/' + filename, '_blank');
         }
     }
     </script>
