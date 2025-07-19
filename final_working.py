@@ -3828,37 +3828,58 @@ def client_documents(client_id):
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
             // للصور
-            previewContent.innerHTML = `
-                <img src="/documents/${docId}/view"
-                     class="img-fluid"
-                     style="max-height: 400px; max-width: 100%;"
-                     alt="${filename}"
-                     onload="this.style.opacity=1"
-                     onerror="this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة</div>'"
-                     style="opacity: 0; transition: opacity 0.3s;">
-            `;
+            setTimeout(() => {
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <img src="/documents/${docId}/view"
+                             class="img-fluid"
+                             style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
+                             alt="${filename}"
+                             onload="console.log('Image loaded successfully')"
+                             onerror="console.error('Image failed to load'); this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة<br>المسار: /documents/${docId}/view</div>'">
+                        <div class="mt-2">
+                            <small class="text-muted">اسم الملف: ${filename}</small>
+                        </div>
+                    </div>
+                `;
+            }, 500);
         } else if (extension === 'pdf') {
             // لملفات PDF
-            previewContent.innerHTML = `
-                <iframe src="/documents/${docId}/view"
-                        width="100%"
-                        height="400px"
-                        style="border: 1px solid #ddd;">
-                    <p>متصفحك لا يدعم عرض ملفات PDF.
-                       <a href="/documents/${docId}/download">انقر هنا لتحميل الملف</a>
-                    </p>
-                </iframe>
-            `;
+            setTimeout(() => {
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <iframe src="/documents/${docId}/view"
+                                width="100%"
+                                height="400px"
+                                style="border: 1px solid #ddd; border-radius: 5px;"
+                                onload="console.log('PDF loaded successfully')"
+                                onerror="console.error('PDF failed to load')">
+                            <p>متصفحك لا يدعم عرض ملفات PDF.
+                               <a href="/documents/${docId}/download">انقر هنا لتحميل الملف</a>
+                            </p>
+                        </iframe>
+                        <div class="mt-2">
+                            <small class="text-muted">اسم الملف: ${filename}</small>
+                        </div>
+                    </div>
+                `;
+            }, 500);
         } else {
             // للملفات الأخرى
-            previewContent.innerHTML = `
-                <div class="alert alert-info">
-                    <i class="fas fa-file-alt fa-3x mb-3"></i>
-                    <h5>معاينة غير متاحة</h5>
-                    <p>لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
-                    <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
-                </div>
-            `;
+            setTimeout(() => {
+                previewContent.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <h5>معاينة غير متاحة</h5>
+                        <p>لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
+                        <p><strong>اسم الملف:</strong> ${filename}</p>
+                        <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
+                        <a href="/documents/${docId}/download" class="btn btn-primary mt-2">
+                            <i class="fas fa-download me-2"></i>تحميل الملف
+                        </a>
+                    </div>
+                `;
+            }, 300);
         }
         } catch (error) {
             console.error('خطأ في showQuickPreview:', error);
@@ -4158,6 +4179,37 @@ def create_test_file():
         return f"تم إنشاء ملف تجريبي في: {test_file_path}"
     except Exception as e:
         return f"خطأ في إنشاء الملف: {str(e)}"
+
+@app.route('/test_preview_route')
+def test_preview_route():
+    """اختبار route المعاينة"""
+    try:
+        # البحث عن أول مستند في قاعدة البيانات
+        document = ClientDocument.query.first()
+        if not document:
+            return "لا توجد مستندات للاختبار"
+
+        return f"""
+        <html dir="rtl">
+        <head><title>اختبار المعاينة</title></head>
+        <body style="font-family: Arial; padding: 20px;">
+            <h2>اختبار route المعاينة</h2>
+            <p><strong>المستند:</strong> {document.original_filename or document.filename}</p>
+            <p><strong>ID:</strong> {document.id}</p>
+            <p><strong>رابط المعاينة:</strong> <a href="/documents/{document.id}/view" target="_blank">/documents/{document.id}/view</a></p>
+            <p><strong>رابط التحميل:</strong> <a href="/documents/{document.id}/download" target="_blank">/documents/{document.id}/download</a></p>
+            <hr>
+            <h3>اختبار المعاينة:</h3>
+            <img src="/documents/{document.id}/view" style="max-width: 300px; border: 1px solid #ccc;"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display: none; padding: 20px; background: #f8f9fa; border: 1px solid #ccc;">
+                لا يمكن عرض الصورة - قد يكون ملف PDF أو نوع آخر
+            </div>
+        </body>
+        </html>
+        """
+    except Exception as e:
+        return f"خطأ في الاختبار: {str(e)}"
 
 @app.route('/documents/<int:document_id>/view')
 def documents_view_file(document_id):
@@ -4599,15 +4651,21 @@ def edit_client(client_id):
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
             // للصور
-            previewContent.innerHTML = `
-                <img src="/documents/${docId}/view"
-                     class="img-fluid"
-                     style="max-height: 400px; max-width: 100%;"
-                     alt="${filename}"
-                     onload="this.style.opacity=1"
-                     onerror="this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة</div>'"
-                     style="opacity: 0; transition: opacity 0.3s;">
-            `;
+            setTimeout(() => {
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <img src="/documents/${docId}/view"
+                             class="img-fluid"
+                             style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
+                             alt="${filename}"
+                             onload="console.log('Image loaded successfully')"
+                             onerror="console.error('Image failed to load'); this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة<br>المسار: /documents/${docId}/view</div>'">
+                        <div class="mt-2">
+                            <small class="text-muted">اسم الملف: ${filename}</small>
+                        </div>
+                    </div>
+                `;
+            }, 500);
         } else if (extension === 'pdf') {
             // لملفات PDF
             previewContent.innerHTML = `
