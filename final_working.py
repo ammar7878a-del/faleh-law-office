@@ -25,10 +25,10 @@ app.config['SECRET_KEY'] = 'final-working-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# إعدادات رفع الملفات - إصلاح المسار
-# الحصول على المجلد الأساسي للمشروع (مجلد أعلى من faleh)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+# إعدادات رفع الملفات - للخادم السحابي
+# استخدام مجلد uploads في نفس مجلد التطبيق
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(CURRENT_DIR, 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -36,6 +36,9 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # إنشاء مجلد الرفع إذا لم يكن موجوداً
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+    # إنشاء المجلدات الفرعية
+    os.makedirs(os.path.join(UPLOAD_FOLDER, 'documents'), exist_ok=True)
+    os.makedirs(os.path.join(UPLOAD_FOLDER, 'logos'), exist_ok=True)
 
 print(f"🔧 مجلد الرفع المحدد: {UPLOAD_FOLDER}")
 print(f"🔧 المجلد موجود: {os.path.exists(UPLOAD_FOLDER)}")
@@ -681,18 +684,38 @@ def simple_file(filename):
 
 @app.route('/documents/<int:document_id>/download')
 def documents_download(document_id):
-    """تحميل المستند بواسطة ID - نسخة مبسطة"""
+    """تحميل المستند بواسطة ID - نسخة محسنة"""
     try:
         document = ClientDocument.query.get_or_404(document_id)
         upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
 
-        # البحث عن الملف
-        file_path = os.path.join(upload_folder, document.filename)
-        if not os.path.exists(file_path):
-            file_path = os.path.join(upload_folder, 'documents', document.filename)
+        # البحث عن الملف في عدة مواقع
+        possible_paths = [
+            os.path.join(upload_folder, document.filename),
+            os.path.join(upload_folder, 'documents', document.filename),
+        ]
 
-        if not os.path.exists(file_path):
-            return f"<h3>File not found: {document.filename}</h3>", 404
+        file_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                file_path = path
+                break
+
+        if not file_path:
+            # إنشاء ملف بديل إذا لم يوجد الملف الأصلي
+            error_content = f"""
+            <html dir="rtl">
+            <head><title>ملف غير موجود</title></head>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h2>⚠️ الملف غير موجود</h2>
+                <p>اسم الملف: {document.filename}</p>
+                <p>الوصف: {document.description}</p>
+                <p>يرجى رفع الملف مرة أخرى</p>
+                <a href="/clients/{document.client_id}">العودة لصفحة العميل</a>
+            </body>
+            </html>
+            """
+            return error_content, 404
 
         # استخدام send_file مع mimetype صحيح
         from flask import send_file
@@ -714,7 +737,17 @@ def documents_download(document_id):
         )
 
     except Exception as e:
-        return f"<h3>Error: {str(e)}</h3>", 500
+        error_content = f"""
+        <html dir="rtl">
+        <head><title>خطأ في التحميل</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h2>❌ خطأ في تحميل الملف</h2>
+            <p>تفاصيل الخطأ: {str(e)}</p>
+            <a href="javascript:history.back()">العودة</a>
+        </body>
+        </html>
+        """
+        return error_content, 500
 
 @app.route('/download_file/<filename>')
 def download_file(filename):
@@ -4001,6 +4034,23 @@ def test_download(filename):
 
     except Exception as e:
         return f"Error: {str(e)}", 500
+
+@app.route('/create_test_file')
+def create_test_file():
+    """إنشاء ملف تجريبي للاختبار"""
+    try:
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        test_file_path = os.path.join(upload_folder, 'test_file.txt')
+
+        # إنشاء ملف تجريبي
+        with open(test_file_path, 'w', encoding='utf-8') as f:
+            f.write('هذا ملف تجريبي لاختبار رفع الملفات\n')
+            f.write('تم إنشاؤه على الخادم السحابي\n')
+            f.write(f'التاريخ: {datetime.now()}\n')
+
+        return f"تم إنشاء ملف تجريبي في: {test_file_path}"
+    except Exception as e:
+        return f"خطأ في إنشاء الملف: {str(e)}"
 
 @app.route('/simple_download/<int:doc_id>')
 def simple_download(doc_id):
