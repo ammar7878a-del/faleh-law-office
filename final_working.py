@@ -3728,8 +3728,11 @@ def client_documents(client_id):
 
                                     <div class="btn-group" role="group">
                                         {% if doc.filename %}
-                                            <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.original_filename or doc.filename }}')" class="btn btn-sm btn-primary">
+                                            <button onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')" class="btn btn-sm btn-primary" title="معاينة سريعة">
                                                 👁️ معاينة
+                                            </button>
+                                            <button onclick="window.open('/documents/{{ doc.id }}/view', '_blank')" class="btn btn-sm btn-outline-primary" title="معاينة في نافذة جديدة" style="display: none;" id="fallback-{{ doc.id }}">
+                                                🔗 معاينة
                                             </button>
                                             <a href="/documents/{{ doc.id }}/download" class="btn btn-sm btn-success">
                                                 📥 تحميل
@@ -3783,29 +3786,45 @@ def client_documents(client_id):
 
     <script>
     function showQuickPreview(docId, filename) {
-        // إظهار المودال
-        const modal = new bootstrap.Modal(document.getElementById('quickPreviewModal'));
-        const previewContent = document.getElementById('previewContent');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const modalTitle = document.getElementById('quickPreviewModalLabel');
+        try {
+            console.log('showQuickPreview called with:', docId, filename);
 
-        // تحديث العنوان
-        modalTitle.textContent = 'معاينة: ' + filename;
+            // التحقق من وجود Bootstrap
+            if (typeof bootstrap === 'undefined') {
+                alert('خطأ: Bootstrap غير محمل');
+                return;
+            }
 
-        // تحديث رابط التحميل
-        downloadBtn.href = '/documents/' + docId + '/download';
+            // التحقق من وجود المودال
+            const modalElement = document.getElementById('quickPreviewModal');
+            if (!modalElement) {
+                alert('خطأ: المودال غير موجود');
+                return;
+            }
 
-        // إظهار loading
-        previewContent.innerHTML = `
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">جاري التحميل...</span>
-            </div>
-        `;
+            // إظهار المودال
+            const modal = new bootstrap.Modal(modalElement);
+            const previewContent = document.getElementById('previewContent');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const modalTitle = document.getElementById('quickPreviewModalLabel');
 
-        modal.show();
+            // تحديث العنوان
+            modalTitle.textContent = 'معاينة: ' + filename;
 
-        // تحديد نوع الملف من الامتداد
-        const extension = filename.split('.').pop().toLowerCase();
+            // تحديث رابط التحميل
+            downloadBtn.href = '/documents/' + docId + '/download';
+
+            // إظهار loading
+            previewContent.innerHTML = `
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+            `;
+
+            modal.show();
+
+            // تحديد نوع الملف من الامتداد
+            const extension = filename.split('.').pop().toLowerCase();
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
             // للصور
@@ -3840,6 +3859,10 @@ def client_documents(client_id):
                     <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
                 </div>
             `;
+        }
+        } catch (error) {
+            console.error('خطأ في showQuickPreview:', error);
+            alert('حدث خطأ في عرض المعاينة: ' + error.message);
         }
     }
     </script>
@@ -4489,7 +4512,7 @@ def edit_client(client_id):
 
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if doc.filename %}
-                                        <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.original_filename or doc.filename }}')" class="btn btn-outline-primary" title="معاينة سريعة">👁️</button>
+                                        <button onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')" class="btn btn-outline-primary" title="معاينة سريعة">👁️</button>
                                         <a href="/documents/{{ doc.id }}/download" class="btn btn-outline-success" title="تحميل">📥</a>
                                     {% endif %}
                                     <a href="/edit_document/{{ doc.id }}" class="btn btn-outline-warning" title="تعديل">✏️</a>
@@ -4534,29 +4557,45 @@ def edit_client(client_id):
 
     <script>
     function showQuickPreview(docId, filename) {
-        // إظهار المودال
-        const modal = new bootstrap.Modal(document.getElementById('quickPreviewModal'));
-        const previewContent = document.getElementById('previewContent');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const modalTitle = document.getElementById('quickPreviewModalLabel');
+        try {
+            console.log('showQuickPreview called with:', docId, filename);
 
-        // تحديث العنوان
-        modalTitle.textContent = 'معاينة: ' + filename;
+            // التحقق من وجود Bootstrap
+            if (typeof bootstrap === 'undefined') {
+                alert('خطأ: Bootstrap غير محمل');
+                return;
+            }
 
-        // تحديث رابط التحميل
-        downloadBtn.href = '/documents/' + docId + '/download';
+            // التحقق من وجود المودال
+            const modalElement = document.getElementById('quickPreviewModal');
+            if (!modalElement) {
+                alert('خطأ: المودال غير موجود');
+                return;
+            }
 
-        // إظهار loading
-        previewContent.innerHTML = `
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">جاري التحميل...</span>
-            </div>
-        `;
+            // إظهار المودال
+            const modal = new bootstrap.Modal(modalElement);
+            const previewContent = document.getElementById('previewContent');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const modalTitle = document.getElementById('quickPreviewModalLabel');
 
-        modal.show();
+            // تحديث العنوان
+            modalTitle.textContent = 'معاينة: ' + filename;
 
-        // تحديد نوع الملف من الامتداد
-        const extension = filename.split('.').pop().toLowerCase();
+            // تحديث رابط التحميل
+            downloadBtn.href = '/documents/' + docId + '/download';
+
+            // إظهار loading
+            previewContent.innerHTML = `
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+            `;
+
+            modal.show();
+
+            // تحديد نوع الملف من الامتداد
+            const extension = filename.split('.').pop().toLowerCase();
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
             // للصور
@@ -4591,6 +4630,10 @@ def edit_client(client_id):
                     <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
                 </div>
             `;
+        }
+        } catch (error) {
+            console.error('خطأ في showQuickPreview:', error);
+            alert('حدث خطأ في عرض المعاينة: ' + error.message);
         }
     }
     </script>
