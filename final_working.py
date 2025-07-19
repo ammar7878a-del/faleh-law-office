@@ -4043,13 +4043,30 @@ def client_documents(client_id):
                                     </div>
 
                                     {% if doc.is_image %}
-                                        <div class="mb-2">
-                                            <img src="{{ url_for('simple_file', filename=doc.filename) }}" class="img-thumbnail" style="max-width: 200px; max-height: 150px;" alt="معاينة">
+                                        <div class="mb-2 text-center">
+                                            <img src="/documents/{{ doc.id }}/view"
+                                                 class="img-thumbnail"
+                                                 style="max-width: 200px; max-height: 150px; cursor: pointer; border: 2px solid #007bff;"
+                                                 alt="معاينة {{ doc.original_filename }}"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                                 title="انقر للمعاينة الكاملة">
+                                            <div style="display: none; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
+                                                <i class="fas fa-image text-muted" style="font-size: 2em;"></i>
+                                                <br><small class="text-muted">لا يمكن عرض الصورة</small>
+                                            </div>
                                         </div>
                                     {% elif doc.is_pdf %}
-                                        <div class="mb-2">
-                                            <i class="fas fa-file-pdf text-danger" style="font-size: 2em;"></i>
-                                            <span class="ms-2">ملف PDF</span>
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #dc3545; border-radius: 8px; padding: 10px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file-pdf text-danger" style="font-size: 3em;"></i>
+                                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">ملف PDF</small>
+                                            </div>
                                         </div>
                                     {% elif doc.is_word %}
                                         <div class="mb-2">
@@ -5308,8 +5325,18 @@ def edit_client(client_id):
                                     <div class="mb-2">
                                         <span class="badge bg-info">{{ doc.original_filename }}</span>
                                         {% if doc.is_image %}
-                                            <div class="mt-1">
-                                                <img src="{{ url_for('simple_file', filename=doc.filename) }}" class="img-thumbnail" style="max-width: 100px; max-height: 80px;">
+                                            <div class="mt-1 text-center">
+                                                <img src="/documents/{{ doc.id }}/view"
+                                                     class="img-thumbnail"
+                                                     style="max-width: 120px; max-height: 90px; cursor: pointer; border: 2px solid #007bff;"
+                                                     alt="معاينة {{ doc.original_filename }}"
+                                                     onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                                     title="انقر للمعاينة الكاملة">
+                                                <div style="display: none; padding: 5px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
+                                                    <i class="fas fa-image text-muted"></i>
+                                                    <br><small class="text-muted">لا يمكن عرض الصورة</small>
+                                                </div>
                                             </div>
                                         {% endif %}
                                     </div>
