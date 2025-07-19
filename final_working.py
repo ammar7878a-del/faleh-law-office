@@ -3827,16 +3827,16 @@ def client_documents(client_id):
             const extension = filename.split('.').pop().toLowerCase();
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-            // للصور
+            // للصور - استخدام route التحميل مع معاملات مختلفة
             setTimeout(() => {
                 previewContent.innerHTML = `
                     <div class="text-center">
-                        <img src="/documents/${docId}/view"
+                        <img src="/simple_preview/${docId}"
                              class="img-fluid"
                              style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
                              alt="${filename}"
                              onload="console.log('Image loaded successfully')"
-                             onerror="console.error('Image failed to load'); this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة<br>المسار: /documents/${docId}/view</div>'">
+                             onerror="console.error('Image failed to load'); this.src='/documents/${docId}/download'; console.log('Trying download route as fallback');">
                         <div class="mt-2">
                             <small class="text-muted">اسم الملف: ${filename}</small>
                         </div>
@@ -4234,18 +4234,166 @@ def test_preview_route():
 def simple_preview(doc_id):
     """معاينة بسيطة بدون مودال"""
     try:
-        document = ClientDocument.query.get_or_404(doc_id)
-        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
-        file_path = os.path.join(upload_folder, document.filename)
+        print(f"🔍 Simple preview request for doc ID: {doc_id}")
 
-        if os.path.exists(file_path):
-            from flask import send_file
-            return send_file(file_path, as_attachment=False)
-        else:
-            return f"الملف غير موجود: {file_path}", 404
+        document = ClientDocument.query.get(doc_id)
+        if not document:
+            print(f"❌ Document not found: {doc_id}")
+            return "المستند غير موجود", 404
+
+        print(f"📄 Document found: {document.filename}")
+
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+
+        # البحث في عدة مواقع
+        possible_paths = [
+            os.path.join(upload_folder, document.filename),
+            os.path.join(upload_folder, 'documents', document.filename),
+            os.path.join('uploads', document.filename),
+            os.path.join('uploads', 'documents', document.filename),
+        ]
+
+        file_path = None
+        for path in possible_paths:
+            print(f"🔍 Checking: {path}")
+            if os.path.exists(path):
+                file_path = path
+                print(f"✅ File found at: {path}")
+                break
+
+        if not file_path:
+            print(f"❌ File not found in any location")
+            # إنشاء صورة placeholder
+            return f"""
+            <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#6c757d">
+                    الملف غير موجود
+                    <tspan x="50%" dy="1.2em">{document.filename}</tspan>
+                </text>
+            </svg>
+            """, 404, {'Content-Type': 'image/svg+xml'}
+
+        # إرسال الملف
+        from flask import send_file
+        import mimetypes
+
+        mimetype, _ = mimetypes.guess_type(file_path)
+        if mimetype is None:
+            mimetype = 'application/octet-stream'
+
+        print(f"📋 Sending file with mimetype: {mimetype}")
+
+        return send_file(
+            file_path,
+            as_attachment=False,
+            mimetype=mimetype
+        )
 
     except Exception as e:
-        return f"خطأ: {str(e)}", 500
+        print(f"❌ Error in simple preview: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        # إرجاع صورة خطأ
+        return f"""
+        <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#f8d7da" stroke="#f5c6cb"/>
+            <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#721c24">
+                خطأ في المعاينة
+                <tspan x="50%" dy="1.2em">{str(e)[:50]}</tspan>
+            </text>
+        </svg>
+        """, 500, {'Content-Type': 'image/svg+xml'}
+
+@app.route('/check_files')
+def check_files():
+    """فحص جميع الملفات المرفوعة"""
+    try:
+        documents = ClientDocument.query.all()
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+
+        results = []
+        for doc in documents:
+            possible_paths = [
+                os.path.join(upload_folder, doc.filename),
+                os.path.join(upload_folder, 'documents', doc.filename),
+                os.path.join('uploads', doc.filename),
+                os.path.join('uploads', 'documents', doc.filename),
+            ]
+
+            found_path = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    found_path = path
+                    break
+
+            results.append({
+                'id': doc.id,
+                'filename': doc.filename,
+                'original_filename': doc.original_filename,
+                'found': found_path is not None,
+                'path': found_path,
+                'client_id': doc.client_id
+            })
+
+        html = """
+        <html dir="rtl">
+        <head>
+            <title>فحص الملفات</title>
+            <style>
+                body { font-family: Arial; padding: 20px; }
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+                th { background-color: #f2f2f2; }
+                .found { color: green; }
+                .not-found { color: red; }
+            </style>
+        </head>
+        <body>
+            <h2>فحص الملفات المرفوعة</h2>
+            <p><strong>مجلد الرفع:</strong> """ + upload_folder + """</p>
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>اسم الملف</th>
+                    <th>الاسم الأصلي</th>
+                    <th>موجود؟</th>
+                    <th>المسار</th>
+                    <th>العميل</th>
+                    <th>معاينة</th>
+                </tr>
+        """
+
+        for result in results:
+            status_class = "found" if result['found'] else "not-found"
+            status_text = "نعم" if result['found'] else "لا"
+            path_text = result['path'] if result['path'] else "غير موجود"
+
+            html += f"""
+                <tr>
+                    <td>{result['id']}</td>
+                    <td>{result['filename']}</td>
+                    <td>{result['original_filename'] or 'غير محدد'}</td>
+                    <td class="{status_class}">{status_text}</td>
+                    <td>{path_text}</td>
+                    <td>{result['client_id']}</td>
+                    <td>
+                        <a href="/simple_preview/{result['id']}" target="_blank">معاينة</a>
+                    </td>
+                </tr>
+            """
+
+        html += """
+            </table>
+        </body>
+        </html>
+        """
+
+        return html
+
+    except Exception as e:
+        return f"خطأ في فحص الملفات: {str(e)}"
 
 @app.route('/documents/<int:document_id>/view')
 def documents_view_file(document_id):
