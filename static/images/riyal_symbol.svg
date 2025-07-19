@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="20" height="20">
+  <defs>
+    <style>
+      .riyal-symbol {
+        fill: #2c3e50;
+        stroke: none;
+      }
+    </style>
+  </defs>
+  <!-- رمز الريال السعودي الجديد -->
+  <g class="riyal-symbol">
+    <!-- الخط العمودي الأيسر -->
+    <rect x="15" y="10" width="8" height="60" />
+    
+    <!-- الخط العمودي الأيمن -->
+    <rect x="35" y="10" width="8" height="60" />
+    
+    <!-- الخط الأفقي العلوي -->
+    <rect x="10" y="25" width="38" height="6" />
+    
+    <!-- الخط الأفقي الأوسط -->
+    <rect x="10" y="40" width="38" height="6" />
+    
+    <!-- الخط الأفقي السفلي -->
+    <rect x="10" y="55" width="38" height="6" />
+    
+    <!-- الخط المائل -->
+    <polygon points="48,25 58,35 58,41 48,31" />
+    <polygon points="48,40 58,50 58,56 48,46" />
+    <polygon points="48,55 58,65 58,71 48,61" />
+  </g>
+</svg>

@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">لوحة التحكم</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('cases.add') }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus me-1"></i>قضية جديدة
+            </a>
+            <a href="{{ url_for('clients.add') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-user-plus me-1"></i>عميل جديد
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-uppercase mb-1">إجمالي القضايا</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ total_cases }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-briefcase fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-uppercase mb-1">القضايا النشطة</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ active_cases }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-gavel fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-uppercase mb-1">إجمالي العملاء</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ total_clients }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stats-card">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-uppercase mb-1">الإيرادات الشهرية</div>
+                        <div class="h5 mb-0 font-weight-bold">{{ "%.2f"|format(monthly_revenue) }} ر.س</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Cases -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">القضايا الحديثة</h5>
+                <a href="{{ url_for('cases.index') }}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="card-body">
+                {% if recent_cases %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>رقم القضية</th>
+                                <th>العنوان</th>
+                                <th>العميل</th>
+                                <th>الحالة</th>
+                                <th>تاريخ الإنشاء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in recent_cases %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('cases.view', id=case.id) }}" class="text-decoration-none">
+                                        {{ case.case_number }}
+                                    </a>
+                                </td>
+                                <td>{{ case.title[:50] }}{% if case.title|length > 50 %}...{% endif %}</td>
+                                <td>{{ case.client.full_name }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if case.status == 'active' else 'secondary' }}">
+                                        {{ {'active': 'نشطة', 'closed': 'مغلقة', 'suspended': 'معلقة'}[case.status] }}
+                                    </span>
+                                </td>
+                                <td>{{ case.created_at.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">لا توجد قضايا حديثة</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upcoming Appointments -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">المواعيد القادمة</h5>
+                <a href="{{ url_for('appointments.index') }}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="card-body">
+                {% if upcoming_appointments %}
+                {% for appointment in upcoming_appointments %}
+                <div class="d-flex align-items-center mb-3 p-2 appointment-card rounded">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="bg-primary text-white icon-circle">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">{{ appointment.title }}</h6>
+                        <div class="d-flex align-items-center text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            <small>{{ appointment.start_time.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        {% if appointment.location %}
+                        <div class="d-flex align-items-center text-muted mt-1">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            <small>{{ appointment.location }}</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="flex-shrink-0">
+                        <span class="badge bg-{{ 'danger' if appointment.appointment_type == 'hearing' else 'primary' if appointment.appointment_type == 'meeting' else 'success' if appointment.appointment_type == 'consultation' else 'secondary' }}">
+                            {{ {'hearing': 'جلسة', 'meeting': 'اجتماع', 'consultation': 'استشارة', 'other': 'أخرى'}[appointment.appointment_type] }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted text-center py-3">لا توجد مواعيد قادمة</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Billing Summary -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">ملخص الفوترة</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center stats-card">
+                            <div class="bg-warning text-white icon-circle-lg mb-2">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <h4 class="text-warning mb-1">{{ pending_invoices }}</h4>
+                            <small class="text-muted">فواتير معلقة</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex flex-column align-items-center stats-card">
+                            <div class="bg-danger text-white icon-circle-lg mb-2">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <h4 class="text-danger mb-1">{{ overdue_invoices }}</h4>
+                            <small class="text-muted">فواتير متأخرة</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.icon-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.icon-circle-lg {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+
+.appointment-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+}
+
+.appointment-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.stats-card {
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: scale(1.05);
+}
+</style>
+{% endblock %}

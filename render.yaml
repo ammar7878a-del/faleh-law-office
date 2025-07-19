@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: law-office-system
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python final_working.py
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEBUG
+        value: false
+    healthCheckPath: /
+    
+databases:
+  - name: law-office-db
+    databaseName: law_office
+    user: law_office_user
+    plan: free

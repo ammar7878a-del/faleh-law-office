@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">الفوترة</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('billing.add') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>إضافة فاتورة جديدة
+        </a>
+    </div>
+</div>
+
+<!-- Financial Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">فواتير معلقة</h6>
+                        <h4>{{ "%.2f"|format(total_pending) }} ر.س</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">فواتير مدفوعة</h6>
+                        <h4>{{ "%.2f"|format(total_paid) }} ر.س</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">فواتير متأخرة</h6>
+                        <h4>{{ "%.2f"|format(total_overdue) }} ر.س</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">إجمالي الإيرادات</h6>
+                        <h4>{{ "%.2f"|format(total_paid) }} ر.س</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-dollar-sign fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" 
+                       placeholder="البحث في الفواتير..." value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">جميع الحالات</option>
+                    <option value="pending" {{ 'selected' if status == 'pending' }}>معلقة</option>
+                    <option value="paid" {{ 'selected' if status == 'paid' }}>مدفوعة</option>
+                    <option value="overdue" {{ 'selected' if status == 'overdue' }}>متأخرة</option>
+                    <option value="cancelled" {{ 'selected' if status == 'cancelled' }}>ملغية</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="client_id" class="form-select">
+                    <option value="0">جميع العملاء</option>
+                    {% for client in clients %}
+                    <option value="{{ client.id }}" {{ 'selected' if client_id == client.id }}>
+                        {{ client.full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-search me-1"></i>بحث
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Invoices Table -->
+<div class="card">
+    <div class="card-body">
+        {% if invoices %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم الفاتورة</th>
+                        <th>العميل</th>
+                        <th>المبلغ</th>
+                        <th>الضريبة</th>
+                        <th>الإجمالي</th>
+                        <th>الحالة</th>
+                        <th>تاريخ الإصدار</th>
+                        <th>تاريخ الاستحقاق</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('billing.view', id=invoice.id) }}" class="text-decoration-none">
+                                <strong>{{ invoice.invoice_number }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ invoice.client.full_name }}</td>
+                        <td>{{ "%.2f"|format(invoice.amount) }} ر.س</td>
+                        <td>{{ "%.2f"|format(invoice.tax_amount) }} ر.س</td>
+                        <td><strong>{{ "%.2f"|format(invoice.total_amount) }} ر.س</strong></td>
+                        <td>
+                            <span class="badge bg-{{ 'warning' if invoice.status == 'pending' else 'success' if invoice.status == 'paid' else 'danger' if invoice.status == 'overdue' else 'secondary' }}">
+                                {{ {'pending': 'معلقة', 'paid': 'مدفوعة', 'overdue': 'متأخرة', 'cancelled': 'ملغية'}[invoice.status] }}
+                            </span>
+                        </td>
+                        <td>{{ invoice.issue_date }}</td>
+                        <td>{{ invoice.due_date }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('billing.view', id=invoice.id) }}" 
+                                   class="btn btn-outline-primary" title="عرض">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('billing.edit', id=invoice.id) }}" 
+                                   class="btn btn-outline-secondary" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{{ url_for('billing.generate_pdf', id=invoice.id) }}" 
+                                   class="btn btn-outline-info" title="PDF" target="_blank">
+                                    <i class="fas fa-file-pdf"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if prev_url or next_url %}
+        <nav aria-label="صفحات الفواتير">
+            <ul class="pagination justify-content-center">
+                {% if prev_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ prev_url }}">السابق</a>
+                </li>
+                {% endif %}
+                {% if next_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ next_url }}">التالي</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-file-invoice-dollar fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">لا توجد فواتير</h5>
+            <p class="text-muted">ابدأ بإضافة فاتورة جديدة</p>
+            <a href="{{ url_for('billing.add') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>إضافة فاتورة جديدة
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

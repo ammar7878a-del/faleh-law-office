@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">القضايا</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('cases.add') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>إضافة قضية جديدة
+        </a>
+    </div>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" 
+                       placeholder="البحث في القضايا..." value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="case_type" class="form-select">
+                    <option value="">جميع الأنواع</option>
+                    <option value="civil" {{ 'selected' if case_type == 'civil' }}>مدنية</option>
+                    <option value="criminal" {{ 'selected' if case_type == 'criminal' }}>جنائية</option>
+                    <option value="commercial" {{ 'selected' if case_type == 'commercial' }}>تجارية</option>
+                    <option value="administrative" {{ 'selected' if case_type == 'administrative' }}>إدارية</option>
+                    <option value="labor" {{ 'selected' if case_type == 'labor' }}>عمالية</option>
+                    <option value="family" {{ 'selected' if case_type == 'family' }}>أحوال شخصية</option>
+                    <option value="real_estate" {{ 'selected' if case_type == 'real_estate' }}>عقارية</option>
+                    <option value="other" {{ 'selected' if case_type == 'other' }}>أخرى</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">جميع الحالات</option>
+                    <option value="active" {{ 'selected' if status == 'active' }}>نشطة</option>
+                    <option value="closed" {{ 'selected' if status == 'closed' }}>مغلقة</option>
+                    <option value="suspended" {{ 'selected' if status == 'suspended' }}>معلقة</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-search me-1"></i>بحث
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Cases Table -->
+<div class="card">
+    <div class="card-body">
+        {% if cases %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم القضية</th>
+                        <th>العنوان</th>
+                        <th>العميل</th>
+                        <th>النوع</th>
+                        <th>الحالة</th>
+                        <th>الأولوية</th>
+                        <th>المحامي</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in cases %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('cases.view', id=case.id) }}" class="text-decoration-none">
+                                <strong>{{ case.case_number }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ case.title[:40] }}{% if case.title|length > 40 %}...{% endif %}</td>
+                        <td>{{ case.client.full_name }}</td>
+                        <td>
+                            <span class="badge bg-info">
+                                {{ {'civil': 'مدنية', 'criminal': 'جنائية', 'commercial': 'تجارية', 
+                                    'administrative': 'إدارية', 'labor': 'عمالية', 'family': 'أحوال شخصية',
+                                    'real_estate': 'عقارية', 'other': 'أخرى'}[case.case_type] }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if case.status == 'active' else 'secondary' if case.status == 'closed' else 'warning' }}">
+                                {{ {'active': 'نشطة', 'closed': 'مغلقة', 'suspended': 'معلقة'}[case.status] }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if case.priority == 'high' else 'warning' if case.priority == 'medium' else 'secondary' }}">
+                                {{ {'high': 'عالية', 'medium': 'متوسطة', 'low': 'منخفضة'}[case.priority] }}
+                            </span>
+                        </td>
+                        <td>{{ case.lawyer.full_name }}</td>
+                        <td>{{ case.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('cases.view', id=case.id) }}" 
+                                   class="btn btn-outline-primary" title="عرض">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('cases.edit', id=case.id) }}" 
+                                   class="btn btn-outline-secondary" title="تعديل">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if prev_url or next_url %}
+        <nav aria-label="صفحات القضايا">
+            <ul class="pagination justify-content-center">
+                {% if prev_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ prev_url }}">السابق</a>
+                </li>
+                {% endif %}
+                {% if next_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ next_url }}">التالي</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">لا توجد قضايا</h5>
+            <p class="text-muted">ابدأ بإضافة قضية جديدة</p>
+            <a href="{{ url_for('cases.add') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>إضافة قضية جديدة
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

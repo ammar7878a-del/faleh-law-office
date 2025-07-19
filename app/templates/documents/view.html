@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('documents.download', id=document.id) }}" class="btn btn-success">
+                <i class="fas fa-download me-1"></i>تحميل
+            </a>
+            {% if current_user.role in ['admin', 'lawyer'] or document.uploaded_by == current_user.id %}
+            <a href="{{ url_for('documents.edit', id=document.id) }}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>تعديل
+            </a>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('documents.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i>العودة للمستندات
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Document Information -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">معلومات المستند</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">اسم الملف:</th>
+                                <td>{{ document.original_filename }}</td>
+                            </tr>
+                            <tr>
+                                <th>نوع المستند:</th>
+                                <td>
+                                    <span class="badge bg-info">
+                                        {{ {'contract': 'عقد', 'evidence': 'دليل', 'correspondence': 'مراسلات', 
+                                            'court_document': 'مستند محكمة', 'identification': 'هوية', 'financial': 'مالي',
+                                            'legal_memo': 'مذكرة قانونية', 'other': 'أخرى'}[document.document_type] }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>نوع الملف:</th>
+                                <td>{{ document.file_type.upper() }}</td>
+                            </tr>
+                            <tr>
+                                <th>حجم الملف:</th>
+                                <td>
+                                    {% if document.file_size %}
+                                        {% if document.file_size < 1024 %}
+                                            {{ document.file_size }} بايت
+                                        {% elif document.file_size < 1024*1024 %}
+                                            {{ "%.1f"|format(document.file_size/1024) }} كيلوبايت
+                                        {% else %}
+                                            {{ "%.1f"|format(document.file_size/(1024*1024)) }} ميجابايت
+                                        {% endif %}
+                                    {% else %}
+                                        غير محدد
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">السرية:</th>
+                                <td>
+                                    {% if document.is_confidential %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-lock me-1"></i>مستند سري
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-unlock me-1"></i>مستند عام
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>رفع بواسطة:</th>
+                                <td>{{ document.uploader.full_name }}</td>
+                            </tr>
+                            <tr>
+                                <th>تاريخ الرفع:</th>
+                                <td>{{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            <tr>
+                                <th>القضية:</th>
+                                <td>
+                                    {% if document.case %}
+                                        <a href="{{ url_for('cases.view', id=document.case.id) }}" class="text-decoration-none">
+                                            {{ document.case.case_number }} - {{ document.case.title }}
+                                        </a>
+                                    {% else %}
+                                        غير مرتبط بقضية
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                {% if document.description %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>الوصف:</h6>
+                        <p class="text-muted">{{ document.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if document.tags %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>العلامات:</h6>
+                        {% for tag in document.tags.split(',') %}
+                            {% if tag.strip() %}
+                                <span class="badge bg-secondary me-1">{{ tag.strip() }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Document Preview -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">معاينة المستند</h5>
+            </div>
+            <div class="card-body">
+                {% if document.file_type == 'pdf' %}
+                    <div class="text-center">
+                        <iframe src="{{ url_for('documents.download', id=document.id) }}" 
+                                width="100%" height="600px" 
+                                style="border: 1px solid #ddd;">
+                            <p>متصفحك لا يدعم عرض ملفات PDF. 
+                               <a href="{{ url_for('documents.download', id=document.id) }}">انقر هنا لتحميل الملف</a>
+                            </p>
+                        </iframe>
+                    </div>
+                {% elif document.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
+                    <div class="text-center">
+                        <img src="{{ url_for('documents.download', id=document.id) }}" 
+                             class="img-fluid" 
+                             alt="{{ document.original_filename }}"
+                             style="max-height: 600px;">
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-file-{{ 'word' if document.file_type in ['doc', 'docx'] else 'alt' }} fa-5x text-muted mb-3"></i>
+                        <h5 class="text-muted">معاينة غير متاحة</h5>
+                        <p class="text-muted">لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
+                        <a href="{{ url_for('documents.download', id=document.id) }}" class="btn btn-primary">
+                            <i class="fas fa-download me-1"></i>تحميل الملف
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Related Information -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">معلومات مرتبطة</h6>
+            </div>
+            <div class="card-body">
+                {% if document.client %}
+                <div class="mb-3">
+                    <h6>العميل:</h6>
+                    <a href="{{ url_for('clients.view', id=document.client.id) }}" class="text-decoration-none">
+                        {{ document.client.full_name }}
+                    </a>
+                </div>
+                {% elif document.case and document.case.client %}
+                <div class="mb-3">
+                    <h6>العميل:</h6>
+                    <a href="{{ url_for('clients.view', id=document.case.client.id) }}" class="text-decoration-none">
+                        {{ document.case.client.full_name }}
+                    </a>
+                </div>
+                {% endif %}
+                
+                {% if document.case %}
+                <div class="mb-3">
+                    <h6>القضية:</h6>
+                    <a href="{{ url_for('cases.view', id=document.case.id) }}" class="text-decoration-none">
+                        {{ document.case.case_number }}
+                    </a>
+                    <br><small class="text-muted">{{ document.case.title }}</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">إجراءات</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('documents.download', id=document.id) }}" class="btn btn-success">
+                        <i class="fas fa-download me-2"></i>تحميل الملف
+                    </a>
+                    {% if current_user.role in ['admin', 'lawyer'] or document.uploaded_by == current_user.id %}
+                    <a href="{{ url_for('documents.edit', id=document.id) }}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>تعديل المعلومات
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('documents.upload') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload me-2"></i>رفع مستند جديد
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delete Document -->
+        {% if current_user.role == 'admin' or document.uploaded_by == current_user.id %}
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0">منطقة خطر</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">حذف المستند سيؤدي إلى فقدانه نهائياً</p>
+                <form method="POST" action="{{ url_for('documents.delete', id=document.id) }}" 
+                      onsubmit="return confirm('هل أنت متأكد من حذف هذا المستند؟')">
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash me-1"></i>حذف المستند
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

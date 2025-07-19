@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">التقويم</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('appointments.add') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>إضافة موعد جديد
+        </a>
+        <a href="{{ url_for('appointments.index') }}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-list me-1"></i>عرض القائمة
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div id="calendar"></div>
+    </div>
+</div>
+
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        locale: 'ar',
+        direction: 'rtl',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: {
+            today: 'اليوم',
+            month: 'شهر',
+            week: 'أسبوع',
+            day: 'يوم'
+        },
+        events: {
+            url: '{{ url_for("appointments.api_events") }}',
+            failure: function() {
+                alert('حدث خطأ في تحميل المواعيد');
+            }
+        },
+        eventClick: function(info) {
+            if (info.event.url) {
+                window.open(info.event.url, '_blank');
+                info.jsEvent.preventDefault();
+            }
+        },
+        dateClick: function(info) {
+            // Redirect to add appointment with selected date
+            var selectedDate = info.dateStr;
+            window.location.href = '{{ url_for("appointments.add") }}?date=' + selectedDate;
+        },
+        eventDidMount: function(info) {
+            // Add tooltip
+            info.el.setAttribute('title', info.event.title);
+        }
+    });
+    
+    calendar.render();
+});
+</script>
+
+<style>
+.fc-toolbar-title {
+    font-size: 1.5rem !important;
+}
+
+.fc-event {
+    cursor: pointer;
+}
+
+.fc-daygrid-event {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fc-event-title {
+    font-weight: normal;
+}
+
+.fc-button {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+}
+
+.fc-button:hover {
+    background-color: #0056b3 !important;
+    border-color: #0056b3 !important;
+}
+
+.fc-button-active {
+    background-color: #0056b3 !important;
+    border-color: #0056b3 !important;
+}
+</style>
+{% endblock %}

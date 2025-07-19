@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">التقارير</h1>
+</div>
+
+<div class="row">
+    <!-- Cases Report -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-briefcase fa-3x text-primary"></i>
+                </div>
+                <h5 class="card-title">تقرير القضايا</h5>
+                <p class="card-text">تقرير شامل عن القضايا والإحصائيات المتعلقة بها</p>
+                <ul class="list-unstyled text-start">
+                    <li><i class="fas fa-check text-success me-2"></i>إحصائيات القضايا</li>
+                    <li><i class="fas fa-check text-success me-2"></i>القضايا حسب النوع</li>
+                    <li><i class="fas fa-check text-success me-2"></i>القضايا حسب المحامي</li>
+                    <li><i class="fas fa-check text-success me-2"></i>الاتجاهات الشهرية</li>
+                </ul>
+                <a href="{{ url_for('reports.cases_report') }}" class="btn btn-primary">
+                    <i class="fas fa-chart-bar me-1"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Financial Report -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-dollar-sign fa-3x text-success"></i>
+                </div>
+                <h5 class="card-title">التقرير المالي</h5>
+                <p class="card-text">تقرير مفصل عن الإيرادات والفواتير والمدفوعات</p>
+                <ul class="list-unstyled text-start">
+                    <li><i class="fas fa-check text-success me-2"></i>إجمالي الإيرادات</li>
+                    <li><i class="fas fa-check text-success me-2"></i>الفواتير المعلقة</li>
+                    <li><i class="fas fa-check text-success me-2"></i>الإيرادات الشهرية</li>
+                    <li><i class="fas fa-check text-success me-2"></i>أفضل العملاء</li>
+                </ul>
+                <a href="{{ url_for('reports.financial_report') }}" class="btn btn-success">
+                    <i class="fas fa-chart-line me-1"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Appointments Report -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-calendar-alt fa-3x text-info"></i>
+                </div>
+                <h5 class="card-title">تقرير المواعيد</h5>
+                <p class="card-text">تقرير عن المواعيد والجلسات والاجتماعات</p>
+                <ul class="list-unstyled text-start">
+                    <li><i class="fas fa-check text-success me-2"></i>إحصائيات المواعيد</li>
+                    <li><i class="fas fa-check text-success me-2"></i>المواعيد حسب النوع</li>
+                    <li><i class="fas fa-check text-success me-2"></i>المواعيد حسب المستخدم</li>
+                    <li><i class="fas fa-check text-success me-2"></i>معدل الإنجاز</li>
+                </ul>
+                <a href="{{ url_for('reports.appointments_report') }}" class="btn btn-info">
+                    <i class="fas fa-calendar-check me-1"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">إحصائيات سريعة</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-primary">{{ total_cases or 0 }}</h3>
+                            <p class="text-muted mb-0">إجمالي القضايا</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-success">{{ total_clients or 0 }}</h3>
+                            <p class="text-muted mb-0">إجمالي العملاء</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border-end">
+                            <h3 class="text-info">{{ total_appointments or 0 }}</h3>
+                            <p class="text-muted mb-0">إجمالي المواعيد</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="text-warning">{{ total_invoices or 0 }}</h3>
+                        <p class="text-muted mb-0">إجمالي الفواتير</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Options -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">تصدير التقارير</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">يمكنك تصدير التقارير بصيغ مختلفة للاستخدام الخارجي</p>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('reports.export_report', report_type='cases') }}" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-download me-1"></i>تصدير تقرير القضايا (CSV)
+                    </a>
+                    <a href="{{ url_for('reports.export_report', report_type='financial') }}" 
+                       class="btn btn-outline-success">
+                        <i class="fas fa-download me-1"></i>تصدير التقرير المالي (CSV)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('appointments.edit', id=appointment.id) }}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>تعديل
+            </a>
+        </div>
+        <a href="{{ url_for('appointments.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i>العودة للمواعيد
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Appointment Details -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">تفاصيل الموعد</h5>
+                <span class="badge bg-{{ 'warning' if appointment.status == 'scheduled' else 'success' if appointment.status == 'completed' else 'danger' }} fs-6">
+                    {{ {'scheduled': 'مجدول', 'completed': 'مكتمل', 'cancelled': 'ملغي'}[appointment.status] }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">العنوان:</th>
+                                <td><strong>{{ appointment.title }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>النوع:</th>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if appointment.appointment_type == 'hearing' else 'primary' if appointment.appointment_type == 'meeting' else 'success' if appointment.appointment_type == 'consultation' else 'secondary' }}">
+                                        {{ {'hearing': 'جلسة محكمة', 'meeting': 'اجتماع', 'consultation': 'استشارة', 'other': 'أخرى'}[appointment.appointment_type] }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>التاريخ:</th>
+                                <td>{{ appointment.start_time.strftime('%Y-%m-%d') }}</td>
+                            </tr>
+                            <tr>
+                                <th>الوقت:</th>
+                                <td>{{ appointment.start_time.strftime('%H:%M') }} - {{ appointment.end_time.strftime('%H:%M') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <th width="40%">المكان:</th>
+                                <td>{{ appointment.location or 'غير محدد' }}</td>
+                            </tr>
+                            <tr>
+                                <th>القضية:</th>
+                                <td>
+                                    {% if appointment.case %}
+                                        <a href="{{ url_for('cases.view', id=appointment.case.id) }}" class="text-decoration-none">
+                                            {{ appointment.case.case_number }} - {{ appointment.case.title }}
+                                        </a>
+                                    {% else %}
+                                        غير مرتبط بقضية
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>العميل:</th>
+                                <td>
+                                    {% if appointment.case and appointment.case.client %}
+                                        <a href="{{ url_for('clients.view', id=appointment.case.client.id) }}" class="text-decoration-none">
+                                            {{ appointment.case.client.full_name }}
+                                        </a>
+                                    {% else %}
+                                        غير محدد
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>المسؤول:</th>
+                                <td>{{ appointment.user.full_name }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                {% if appointment.description %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>الوصف:</h6>
+                        <p class="text-muted">{{ appointment.description }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if appointment.notes %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>ملاحظات:</h6>
+                        <p class="text-muted">{{ appointment.notes }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Time Information -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">معلومات التوقيت</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="fas fa-calendar fa-2x text-primary mb-2"></i>
+                            <h6>التاريخ</h6>
+                            <p class="mb-0">{{ appointment.start_time.strftime('%A') }}</p>
+                            <p class="mb-0">{{ appointment.start_time.strftime('%Y-%m-%d') }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="fas fa-clock fa-2x text-success mb-2"></i>
+                            <h6>وقت البداية</h6>
+                            <p class="mb-0">{{ appointment.start_time.strftime('%H:%M') }}</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                            <h6>وقت النهاية</h6>
+                            <p class="mb-0">{{ appointment.end_time.strftime('%H:%M') }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            مدة الموعد: 
+                            {% set duration = appointment.end_time - appointment.start_time %}
+                            {% if duration.total_seconds() >= 3600 %}
+                                {{ (duration.total_seconds() // 3600)|int }} ساعة
+                                {% if (duration.total_seconds() % 3600) >= 60 %}
+                                    و {{ ((duration.total_seconds() % 3600) // 60)|int }} دقيقة
+                                {% endif %}
+                            {% else %}
+                                {{ (duration.total_seconds() // 60)|int }} دقيقة
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">إجراءات سريعة</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('appointments.edit', id=appointment.id) }}" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>تعديل الموعد
+                    </a>
+                    <a href="{{ url_for('appointments.calendar') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-calendar me-2"></i>عرض التقويم
+                    </a>
+                    <a href="{{ url_for('appointments.add') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-plus me-2"></i>موعد جديد
+                    </a>
+                    {% if appointment.case %}
+                    <a href="{{ url_for('cases.view', id=appointment.case.id) }}" class="btn btn-outline-info">
+                        <i class="fas fa-briefcase me-2"></i>عرض القضية
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Information -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">حالة الموعد</h6>
+            </div>
+            <div class="card-body">
+                {% if appointment.status == 'scheduled' %}
+                    {% if appointment.start_time > now %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock me-2"></i>
+                            الموعد مجدول
+                            <br><small>يبدأ في {{ appointment.start_time.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            الموعد قد بدأ أو انتهى
+                        </div>
+                    {% endif %}
+                {% elif appointment.status == 'completed' %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        تم إنجاز الموعد بنجاح
+                    </div>
+                {% else %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle me-2"></i>
+                        تم إلغاء الموعد
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Related Information -->
+        {% if appointment.case %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">معلومات القضية</h6>
+            </div>
+            <div class="card-body">
+                <h6>{{ appointment.case.case_number }}</h6>
+                <p class="mb-1">{{ appointment.case.title }}</p>
+                <small class="text-muted">
+                    <i class="fas fa-user me-1"></i>{{ appointment.case.client.full_name }}
+                    <br>
+                    <i class="fas fa-gavel me-1"></i>{{ appointment.case.lawyer.full_name }}
+                </small>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Reminder Information -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">التذكيرات</h6>
+            </div>
+            <div class="card-body">
+                {% if appointment.reminder_sent %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check me-2"></i>
+                        تم إرسال تذكير
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        لم يتم إرسال تذكير بعد
+                    </div>
+                {% endif %}
+                
+                <small class="text-muted">
+                    <i class="fas fa-calendar-plus me-1"></i>
+                    تم إنشاء الموعد في {{ appointment.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

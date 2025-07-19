@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">إدارة المستخدمين</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary">
+            <i class="fas fa-user-plus me-1"></i>إضافة مستخدم جديد
+        </a>
+    </div>
+</div>
+
+<!-- Users Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">إجمالي المستخدمين</h6>
+                        <h4>{{ users|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">المستخدمون النشطون</h6>
+                        <h4>{{ users|selectattr('is_active')|list|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">المحامون</h6>
+                        <h4>{{ users|selectattr('role', 'equalto', 'lawyer')|list|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-gavel fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">المديرون</h6>
+                        <h4>{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-shield fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card">
+    <div class="card-body">
+        {% if users %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>اسم المستخدم</th>
+                        <th>البريد الإلكتروني</th>
+                        <th>الهاتف</th>
+                        <th>الدور</th>
+                        <th>الحالة</th>
+                        <th>آخر زيارة</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm me-2">
+                                    <div class="avatar-title bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'lawyer' else 'secondary' }} rounded-circle">
+                                        {{ user.first_name[0] }}{{ user.last_name[0] }}
+                                    </div>
+                                </div>
+                                <div>
+                                    <strong>{{ user.full_name }}</strong>
+                                    {% if user.id == current_user.id %}
+                                        <span class="badge bg-info ms-1">أنت</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.phone or '-' }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'lawyer' else 'secondary' }}">
+                                {{ {'admin': 'مدير', 'lawyer': 'محامي', 'secretary': 'سكرتير'}[user.role] }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>نشط
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-times me-1"></i>غير نشط
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.last_seen %}
+                                {{ user.last_seen.strftime('%Y-%m-%d') }}
+                            {% else %}
+                                لم يسجل دخول
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                {% if user.id != current_user.id %}
+                                <button class="btn btn-outline-warning"
+                                        onclick="toggleUserStatus({{ user.id }}, {{ user.is_active|lower }})"
+                                        title="{{ 'تعطيل' if user.is_active else 'تفعيل' }}">
+                                    <i class="fas fa-{{ 'ban' if user.is_active else 'check' }}"></i>
+                                </button>
+                                <button class="btn btn-outline-danger"
+                                        onclick="deleteUser({{ user.id }}, '{{ user.full_name }}')"
+                                        title="حذف المستخدم">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-outline-info"
+                                        onclick="viewUserDetails({{ user.id }})"
+                                        title="عرض التفاصيل">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if prev_url or next_url %}
+        <nav aria-label="صفحات المستخدمين">
+            <ul class="pagination justify-content-center">
+                {% if prev_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ prev_url }}">السابق</a>
+                </li>
+                {% endif %}
+                {% if next_url %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ next_url }}">التالي</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">لا توجد مستخدمون</h5>
+            <p class="text-muted">ابدأ بإضافة مستخدم جديد</p>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus me-1"></i>إضافة مستخدم جديد
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تفاصيل المستخدم</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="userDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-title {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+}
+</style>
+
+<script>
+function toggleUserStatus(userId, currentStatus) {
+    const action = currentStatus ? 'تعطيل' : 'تفعيل';
+    if (confirm(`هل أنت متأكد من ${action} هذا المستخدم؟`)) {
+        // Here you would implement the AJAX call to toggle user status
+        // For now, we'll just show an alert
+        alert('سيتم تنفيذ هذه الوظيفة في التحديث القادم');
+    }
+}
+
+function viewUserDetails(userId) {
+    // Here you would implement the AJAX call to get user details
+    // For now, we'll just show a placeholder
+    document.getElementById('userDetailsContent').innerHTML = `
+        <p>تفاصيل المستخدم رقم ${userId}</p>
+        <p>سيتم تنفيذ هذه الوظيفة في التحديث القادم</p>
+    `;
+
+    const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+    modal.show();
+}
+
+function deleteUser(userId, userName) {
+    if (confirm(`هل أنت متأكد من حذف المستخدم "${userName}"؟\n\nتحذير: هذا الإجراء لا يمكن التراجع عنه!`)) {
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/auth/delete_user/${userId}`;
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// اختبار بسيط للتأكد من وجود الدالة
+console.log('✅ دالة deleteUser محملة بنجاح');
+</script>
+{% endblock %}

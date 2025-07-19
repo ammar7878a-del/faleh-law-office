@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('billing.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-right me-1"></i>العودة للفوترة
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.invoice_number.label(class="form-label") }}
+                            {{ form.invoice_number(class="form-control" + (" is-invalid" if form.invoice_number.errors else "")) }}
+                            {% if form.invoice_number.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.invoice_number.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            {{ form.status.label(class="form-label") }}
+                            {{ form.status(class="form-select" + (" is-invalid" if form.status.errors else "")) }}
+                            {% if form.status.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.status.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows="3") }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.client_id.label(class="form-label") }}
+                            {{ form.client_id(class="form-select" + (" is-invalid" if form.client_id.errors else "")) }}
+                            {% if form.client_id.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.client_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            {{ form.case_id.label(class="form-label") }}
+                            {{ form.case_id(class="form-select" + (" is-invalid" if form.case_id.errors else "")) }}
+                            {% if form.case_id.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.case_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            {{ form.amount.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ form.amount(class="form-control" + (" is-invalid" if form.amount.errors else "")) }}
+                                <span class="input-group-text">ر.س</span>
+                            </div>
+                            {% if form.amount.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.amount.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            {{ form.tax_amount.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ form.tax_amount(class="form-control" + (" is-invalid" if form.tax_amount.errors else "")) }}
+                                <span class="input-group-text">ر.س</span>
+                            </div>
+                            {% if form.tax_amount.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.tax_amount.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">المبلغ الإجمالي</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="total_amount" readonly>
+                                <span class="input-group-text">ر.س</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            {{ form.issue_date.label(class="form-label") }}
+                            {{ form.issue_date(class="form-control" + (" is-invalid" if form.issue_date.errors else "")) }}
+                            {% if form.issue_date.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.issue_date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            {{ form.due_date.label(class="form-label") }}
+                            {{ form.due_date(class="form-control" + (" is-invalid" if form.due_date.errors else "")) }}
+                            {% if form.due_date.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.due_date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            {{ form.paid_date.label(class="form-label") }}
+                            {{ form.paid_date(class="form-control" + (" is-invalid" if form.paid_date.errors else "")) }}
+                            {% if form.paid_date.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.paid_date.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.payment_method.label(class="form-label") }}
+                            {{ form.payment_method(class="form-select" + (" is-invalid" if form.payment_method.errors else "")) }}
+                            {% if form.payment_method.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.payment_method.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows="3") }}
+                        {% if form.notes.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.notes.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('billing.index') }}" class="btn btn-secondary">إلغاء</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">نصائح الفوترة</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled small">
+                    <li><i class="fas fa-info-circle text-info me-2"></i>رقم الفاتورة يجب أن يكون فريد</li>
+                    <li><i class="fas fa-calculator text-warning me-2"></i>سيتم حساب المبلغ الإجمالي تلقائياً</li>
+                    <li><i class="fas fa-calendar text-success me-2"></i>تاريخ الاستحقاق يجب أن يكون بعد تاريخ الإصدار</li>
+                    <li><i class="fas fa-link text-primary me-2"></i>ربط الفاتورة بالقضية يساعد في التتبع</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">حالات الفاتورة</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-2">
+                        <span class="badge bg-warning">معلقة</span>
+                        <br><small class="text-muted">في انتظار الدفع</small>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <span class="badge bg-success">مدفوعة</span>
+                        <br><small class="text-muted">تم السداد</small>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <span class="badge bg-danger">متأخرة</span>
+                        <br><small class="text-muted">تجاوزت تاريخ الاستحقاق</small>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <span class="badge bg-secondary">ملغية</span>
+                        <br><small class="text-muted">تم إلغاؤها</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Calculate total amount automatically
+document.addEventListener('DOMContentLoaded', function() {
+    const amountInput = document.getElementById('amount');
+    const taxAmountInput = document.getElementById('tax_amount');
+    const totalAmountInput = document.getElementById('total_amount');
+    
+    function calculateTotal() {
+        const amount = parseFloat(amountInput.value) || 0;
+        const taxAmount = parseFloat(taxAmountInput.value) || 0;
+        const total = amount + taxAmount;
+        totalAmountInput.value = total.toFixed(2);
+    }
+    
+    if (amountInput && taxAmountInput && totalAmountInput) {
+        amountInput.addEventListener('input', calculateTotal);
+        taxAmountInput.addEventListener('input', calculateTotal);
+        
+        // Calculate on page load
+        calculateTotal();
+    }
+});
+</script>
+{% endblock %}
