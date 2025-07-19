@@ -3142,8 +3142,8 @@ def view_case(case_id):
                                             <ul class="dropdown-menu">
                                                 <li><a class="dropdown-item text-primary" href="/link_document/{{ document.id }}/{{ case.id }}" onclick="return confirm('ربط المستند بهذه القضية؟')">🔗 ربط بالقضية</a></li>
                                                 {% if document.filename %}
-                                                    <li><a class="dropdown-item" href="{{ url_for('simple_file', filename=document.filename) }}" target="_blank">👁️ معاينة</a></li>
-                                                    <li><a class="dropdown-item" href="{{ url_for('download_file', filename=document.filename) }}">📥 تحميل</a></li>
+                                                    <li><a class="dropdown-item" href="/documents/{{ document.id }}/view" target="_blank">👁️ معاينة</a></li>
+                                                    <li><a class="dropdown-item" href="/documents/{{ document.id }}/download">📥 تحميل</a></li>
                                                 {% endif %}
                                             </ul>
                                         </div>
@@ -3728,10 +3728,10 @@ def client_documents(client_id):
 
                                     <div class="btn-group" role="group">
                                         {% if doc.filename %}
-                                            <button onclick="window.open('{{ url_for('simple_file', filename=doc.filename) }}', '_blank')" class="btn btn-sm btn-primary">
+                                            <button onclick="window.open('/documents/{{ doc.id }}/view', '_blank')" class="btn btn-sm btn-primary">
                                                 👁️ معاينة
                                             </button>
-                                            <a href="{{ url_for('download_file', filename=doc.filename) }}" class="btn btn-sm btn-success">
+                                            <a href="/documents/{{ doc.id }}/download" class="btn btn-sm btn-success">
                                                 📥 تحميل
                                             </a>
                                         {% else %}
@@ -3821,17 +3821,17 @@ def documents_view(document_id):
                     <div class="card-body preview-container">
                         {% if file_extension == 'pdf' %}
                             <div class="text-center">
-                                <iframe src="{{ url_for('documents_download', document_id=document.id) }}"
+                                <iframe src="/documents/{{ document.id }}/view"
                                         width="100%" height="500px"
                                         style="border: 1px solid #ddd;">
                                     <p>متصفحك لا يدعم عرض ملفات PDF.
-                                       <a href="{{ url_for('documents_download', document_id=document.id) }}">انقر هنا لتحميل الملف</a>
+                                       <a href="/documents/{{ document.id }}/download">انقر هنا لتحميل الملف</a>
                                     </p>
                                 </iframe>
                             </div>
                         {% elif file_extension in ['jpg', 'jpeg', 'png', 'gif'] %}
                             <div class="text-center">
-                                <img src="{{ url_for('documents_download', document_id=document.id) }}"
+                                <img src="/documents/{{ document.id }}/view"
                                      class="img-fluid"
                                      alt="{{ document.original_filename or document.filename }}"
                                      style="max-height: 500px;">
@@ -3843,7 +3843,7 @@ def documents_view(document_id):
                                 </div>
                                 <h5 class="text-muted">معاينة غير متاحة</h5>
                                 <p class="text-muted">لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
-                                <a href="{{ url_for('documents_download', document_id=document.id) }}" class="btn btn-primary">
+                                <a href="/documents/{{ document.id }}/download" class="btn btn-primary">
                                     <i class="fas fa-download me-2"></i>تحميل الملف
                                 </a>
                             </div>
@@ -4051,6 +4051,67 @@ def create_test_file():
         return f"تم إنشاء ملف تجريبي في: {test_file_path}"
     except Exception as e:
         return f"خطأ في إنشاء الملف: {str(e)}"
+
+@app.route('/documents/<int:document_id>/view')
+def documents_view_file(document_id):
+    """عرض المستند في المتصفح (للمعاينة)"""
+    try:
+        document = ClientDocument.query.get_or_404(document_id)
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+
+        # البحث عن الملف في عدة مواقع
+        possible_paths = [
+            os.path.join(upload_folder, document.filename),
+            os.path.join(upload_folder, 'documents', document.filename),
+        ]
+
+        file_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                file_path = path
+                break
+
+        if not file_path:
+            return f"""
+            <html dir="rtl">
+            <head><title>ملف غير موجود</title></head>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+                <h2>⚠️ الملف غير موجود</h2>
+                <p>اسم الملف: {document.filename}</p>
+                <p>الوصف: {document.description}</p>
+                <p>يرجى رفع الملف مرة أخرى</p>
+                <a href="/clients/{document.client_id}">العودة لصفحة العميل</a>
+            </body>
+            </html>
+            """, 404
+
+        # استخدام send_file للعرض في المتصفح (بدون تحميل)
+        from flask import send_file
+        import mimetypes
+
+        # تحديد نوع الملف
+        mimetype, _ = mimetypes.guess_type(file_path)
+        if mimetype is None:
+            mimetype = 'application/octet-stream'
+
+        # عرض الملف في المتصفح (inline) بدلاً من التحميل
+        return send_file(
+            file_path,
+            as_attachment=False,  # هذا مهم للمعاينة
+            mimetype=mimetype
+        )
+
+    except Exception as e:
+        return f"""
+        <html dir="rtl">
+        <head><title>خطأ في العرض</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h2>❌ خطأ في عرض الملف</h2>
+            <p>تفاصيل الخطأ: {str(e)}</p>
+            <a href="javascript:history.back()">العودة</a>
+        </body>
+        </html>
+        """, 500
 
 @app.route('/simple_download/<int:doc_id>')
 def simple_download(doc_id):
