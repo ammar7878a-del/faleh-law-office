@@ -526,21 +526,50 @@ def get_navbar_brand():
 def simple_file(filename):
     """طريقة بسيطة لعرض الملفات - بدون تسجيل دخول للاختبار"""
     try:
+        print(f"🔍 Simple file request: {filename}")
+
+        # فك ترميز اسم الملف إذا كان مُرمز
+        import urllib.parse
+        try:
+            decoded_filename = urllib.parse.unquote(filename, encoding='utf-8')
+            print(f"📝 Decoded filename: {decoded_filename}")
+        except:
+            decoded_filename = filename
+            print(f"📝 Using original filename: {filename}")
+
         upload_folder = app.config['UPLOAD_FOLDER']
+        print(f"📁 Upload folder: {upload_folder}")
 
-        # البحث في المجلد الرئيسي أولاً
-        file_path = os.path.join(upload_folder, filename)
+        # البحث باستخدام الاسم الأصلي والمُفكك
+        search_names = [filename, decoded_filename]
+        file_path = None
 
-        # إذا لم يوجد، ابحث في مجلد documents
-        if not os.path.exists(file_path):
-            file_path = os.path.join(upload_folder, 'documents', filename)
+        for search_name in search_names:
+            # البحث في المجلد الرئيسي أولاً
+            test_path = os.path.join(upload_folder, search_name)
+            print(f"🔍 Checking: {test_path}")
+            if os.path.exists(test_path):
+                file_path = test_path
+                print(f"✅ Found at: {test_path}")
+                break
 
-        # إذا لم يوجد، ابحث في جميع المجلدات الفرعية
-        if not os.path.exists(file_path):
+            # إذا لم يوجد، ابحث في مجلد documents
+            test_path = os.path.join(upload_folder, 'documents', search_name)
+            print(f"🔍 Checking: {test_path}")
+            if os.path.exists(test_path):
+                file_path = test_path
+                print(f"✅ Found at: {test_path}")
+                break
+
+            # إذا لم يوجد، ابحث في جميع المجلدات الفرعية
             for root, dirs, files in os.walk(upload_folder):
-                if filename in files:
-                    file_path = os.path.join(root, filename)
+                if search_name in files:
+                    file_path = os.path.join(root, search_name)
+                    print(f"✅ Found at: {file_path}")
                     break
+
+            if file_path:
+                break
 
         if os.path.exists(file_path):
             filename_lower = filename.lower()
@@ -671,16 +700,41 @@ def simple_file(filename):
                     rel_path = os.path.relpath(os.path.join(root, file), upload_folder)
                     available_files.append(rel_path)
 
+            print(f"❌ File not found: {filename}")
+            print(f"📁 Available files: {available_files[:10]}")  # أول 10 ملفات فقط
+
             return f"""
-            <h3>الملف غير موجود: {filename}</h3>
-            <h4>الملفات المتاحة:</h4>
-            <ul>
-            {''.join([f'<li>{f}</li>' for f in available_files])}
-            </ul>
+            <html dir="rtl">
+            <head><title>ملف غير موجود</title></head>
+            <body style="font-family: Arial; padding: 20px;">
+                <h3>❌ الملف غير موجود: {filename}</h3>
+                <p><strong>الاسم المُفكك:</strong> {decoded_filename}</p>
+                <p><strong>مجلد البحث:</strong> {upload_folder}</p>
+                <h4>الملفات المتاحة (أول 20):</h4>
+                <ul>
+                {''.join([f'<li>{f}</li>' for f in available_files[:20]])}
+                </ul>
+                <a href="javascript:history.back()">العودة</a>
+            </body>
+            </html>
             """, 404
 
     except Exception as e:
-        return f"خطأ: {str(e)}", 500
+        print(f"❌ Error in simple_file: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        return f"""
+        <html dir="rtl">
+        <head><title>خطأ في الملف</title></head>
+        <body style="font-family: Arial; padding: 20px;">
+            <h3>❌ خطأ في عرض الملف</h3>
+            <p><strong>اسم الملف:</strong> {filename}</p>
+            <p><strong>تفاصيل الخطأ:</strong> {str(e)}</p>
+            <a href="javascript:history.back()">العودة</a>
+        </body>
+        </html>
+        """, 500
 
 @app.route('/documents/<int:document_id>/download')
 def documents_download(document_id):
