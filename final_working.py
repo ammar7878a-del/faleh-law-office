@@ -4324,28 +4324,39 @@ def client_documents(client_id):
             setTimeout(() => {
                 if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt)) {
                     const img = document.createElement('img');
-                    img.src = '/simple_file/' + filename;
+                    // استخدام رابط المستند بدلاً من اسم الملف مباشرة
+                    img.src = '/documents/' + docId + '/view';
                     img.style.cssText = 'max-width: 100%; max-height: 70vh; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
                     img.onload = function() {
                         fileContent.innerHTML = '';
                         fileContent.appendChild(img);
                     };
                     img.onerror = function() {
-                        fileContent.innerHTML = `
-                            <div style="padding: 40px; color: #dc3545;">
-                                <h4>⚠️ خطأ في تحميل الصورة</h4>
-                                <p>اسم الملف: ${filename}</p>
-                                <a href="/simple_file/${filename}" target="_blank"
-                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
-                                    فتح في نافذة جديدة
-                                </a>
-                            </div>
-                        `;
+                        // إذا فشل الرابط الأول، جرب الرابط البديل
+                        img.src = '/simple_file/' + filename;
+                        img.onerror = function() {
+                            fileContent.innerHTML = `
+                                <div style="padding: 40px; color: #dc3545;">
+                                    <h4>⚠️ خطأ في تحميل الصورة</h4>
+                                    <p>اسم الملف: ${filename}</p>
+                                    <div style="margin-top: 20px;">
+                                        <a href="/documents/${docId}/download" target="_blank"
+                                           style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                            فتح في نافذة جديدة
+                                        </a>
+                                        <a href="/documents/${docId}/download" download
+                                           style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                            تحميل الملف
+                                        </a>
+                                    </div>
+                                </div>
+                            `;
+                        };
                     };
                 } else if (fileExt === 'pdf') {
                     fileContent.innerHTML = `
                         <div style="padding: 20px;">
-                            <iframe src="/simple_file/${filename}"
+                            <iframe src="/documents/${docId}/view"
                                     style="width: 80vw; height: 70vh; border: 1px solid #ddd; border-radius: 4px;"
                                     onload="console.log('PDF loaded')"
                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
@@ -4353,10 +4364,16 @@ def client_documents(client_id):
                             <div style="display: none; padding: 40px; color: #dc3545;">
                                 <h4>⚠️ لا يمكن عرض ملف PDF</h4>
                                 <p>اسم الملف: ${filename}</p>
-                                <a href="/simple_file/${filename}" target="_blank"
-                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
-                                    فتح في نافذة جديدة
-                                </a>
+                                <div style="margin-top: 20px;">
+                                    <a href="/documents/${docId}/download" target="_blank"
+                                       style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                        فتح في نافذة جديدة
+                                    </a>
+                                    <a href="/documents/${docId}/download" download
+                                       style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                        تحميل الملف
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -4367,11 +4384,11 @@ def client_documents(client_id):
                             <p><strong>اسم الملف:</strong> ${filename}</p>
                             <p><strong>نوع الملف:</strong> ${fileExt.toUpperCase()}</p>
                             <div style="margin-top: 20px;">
-                                <a href="/simple_file/${filename}" target="_blank"
+                                <a href="/documents/${docId}/download" target="_blank"
                                    style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
                                     فتح الملف
                                 </a>
-                                <a href="/simple_file/${filename}" download
+                                <a href="/documents/${docId}/download" download
                                    style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
                                     تحميل الملف
                                 </a>
@@ -5502,23 +5519,34 @@ def edit_client(client_id):
             setTimeout(() => {
                 if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt)) {
                     const img = document.createElement('img');
-                    img.src = '/simple_file/' + filename;
+                    // استخدام رابط المستند بدلاً من اسم الملف مباشرة
+                    img.src = '/documents/' + docId + '/view';
                     img.style.cssText = 'max-width: 100%; max-height: 70vh; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);';
                     img.onload = function() {
                         fileContent.innerHTML = '';
                         fileContent.appendChild(img);
                     };
                     img.onerror = function() {
-                        fileContent.innerHTML = `
-                            <div style="padding: 40px; color: #dc3545;">
-                                <h4>⚠️ خطأ في تحميل الصورة</h4>
-                                <p>اسم الملف: ${filename}</p>
-                                <a href="/simple_file/${filename}" target="_blank"
-                                   style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
-                                    فتح في نافذة جديدة
-                                </a>
-                            </div>
-                        `;
+                        // إذا فشل الرابط الأول، جرب الرابط البديل
+                        img.src = '/simple_file/' + filename;
+                        img.onerror = function() {
+                            fileContent.innerHTML = `
+                                <div style="padding: 40px; color: #dc3545;">
+                                    <h4>⚠️ خطأ في تحميل الصورة</h4>
+                                    <p>اسم الملف: ${filename}</p>
+                                    <div style="margin-top: 20px;">
+                                        <a href="/documents/${docId}/download" target="_blank"
+                                           style="display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                            فتح في نافذة جديدة
+                                        </a>
+                                        <a href="/documents/${docId}/download" download
+                                           style="display: inline-block; padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px;">
+                                            تحميل الملف
+                                        </a>
+                                    </div>
+                                </div>
+                            `;
+                        };
                     };
                 } else if (fileExt === 'pdf') {
                     fileContent.innerHTML = `
