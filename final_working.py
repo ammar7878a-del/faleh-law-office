@@ -3728,7 +3728,7 @@ def client_documents(client_id):
 
                                     <div class="btn-group" role="group">
                                         {% if doc.filename %}
-                                            <button onclick="window.open('/documents/{{ doc.id }}/view', '_blank')" class="btn btn-sm btn-primary">
+                                            <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.original_filename or doc.filename }}')" class="btn btn-sm btn-primary">
                                                 👁️ معاينة
                                             </button>
                                             <a href="/documents/{{ doc.id }}/download" class="btn btn-sm btn-success">
@@ -3759,6 +3759,90 @@ def client_documents(client_id):
             </div>
         </div>
     </div>
+
+    <!-- Modal للمعاينة السريعة -->
+    <div class="modal fade" id="quickPreviewModal" tabindex="-1" aria-labelledby="quickPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickPreviewModalLabel">معاينة سريعة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center" id="previewContent">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">جاري التحميل...</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <a href="#" id="downloadBtn" class="btn btn-success">📥 تحميل</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function showQuickPreview(docId, filename) {
+        // إظهار المودال
+        const modal = new bootstrap.Modal(document.getElementById('quickPreviewModal'));
+        const previewContent = document.getElementById('previewContent');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const modalTitle = document.getElementById('quickPreviewModalLabel');
+
+        // تحديث العنوان
+        modalTitle.textContent = 'معاينة: ' + filename;
+
+        // تحديث رابط التحميل
+        downloadBtn.href = '/documents/' + docId + '/download';
+
+        // إظهار loading
+        previewContent.innerHTML = `
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">جاري التحميل...</span>
+            </div>
+        `;
+
+        modal.show();
+
+        // تحديد نوع الملف من الامتداد
+        const extension = filename.split('.').pop().toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+            // للصور
+            previewContent.innerHTML = `
+                <img src="/documents/${docId}/view"
+                     class="img-fluid"
+                     style="max-height: 400px; max-width: 100%;"
+                     alt="${filename}"
+                     onload="this.style.opacity=1"
+                     onerror="this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة</div>'"
+                     style="opacity: 0; transition: opacity 0.3s;">
+            `;
+        } else if (extension === 'pdf') {
+            // لملفات PDF
+            previewContent.innerHTML = `
+                <iframe src="/documents/${docId}/view"
+                        width="100%"
+                        height="400px"
+                        style="border: 1px solid #ddd;">
+                    <p>متصفحك لا يدعم عرض ملفات PDF.
+                       <a href="/documents/${docId}/download">انقر هنا لتحميل الملف</a>
+                    </p>
+                </iframe>
+            `;
+        } else {
+            // للملفات الأخرى
+            previewContent.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-file-alt fa-3x mb-3"></i>
+                    <h5>معاينة غير متاحة</h5>
+                    <p>لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
+                    <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
+                </div>
+            `;
+        }
+    }
+    </script>
 </body>
 </html>
     ''', client=client, documents=documents, case=case)
@@ -4405,10 +4489,11 @@ def edit_client(client_id):
 
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if doc.filename %}
-                                        <button onclick="window.open('{{ url_for('simple_file', filename=doc.filename) }}', '_blank')" class="btn btn-outline-primary">👁️</button>
+                                        <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.original_filename or doc.filename }}')" class="btn btn-outline-primary" title="معاينة سريعة">👁️</button>
+                                        <a href="/documents/{{ doc.id }}/download" class="btn btn-outline-success" title="تحميل">📥</a>
                                     {% endif %}
-                                    <a href="/edit_document/{{ doc.id }}" class="btn btn-outline-warning">✏️</a>
-                                    <a href="/delete_document/{{ doc.id }}" class="btn btn-outline-danger"
+                                    <a href="/edit_document/{{ doc.id }}" class="btn btn-outline-warning" title="تعديل">✏️</a>
+                                    <a href="/delete_document/{{ doc.id }}" class="btn btn-outline-danger" title="حذف"
                                        onclick="return confirm('حذف هذا المستند؟')">🗑️</a>
                                 </div>
                             </div>
@@ -4425,6 +4510,90 @@ def edit_client(client_id):
             </div>
         </div>
     </div>
+
+    <!-- Modal للمعاينة السريعة -->
+    <div class="modal fade" id="quickPreviewModal" tabindex="-1" aria-labelledby="quickPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickPreviewModalLabel">معاينة سريعة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center" id="previewContent">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">جاري التحميل...</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <a href="#" id="downloadBtn" class="btn btn-success">📥 تحميل</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function showQuickPreview(docId, filename) {
+        // إظهار المودال
+        const modal = new bootstrap.Modal(document.getElementById('quickPreviewModal'));
+        const previewContent = document.getElementById('previewContent');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const modalTitle = document.getElementById('quickPreviewModalLabel');
+
+        // تحديث العنوان
+        modalTitle.textContent = 'معاينة: ' + filename;
+
+        // تحديث رابط التحميل
+        downloadBtn.href = '/documents/' + docId + '/download';
+
+        // إظهار loading
+        previewContent.innerHTML = `
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">جاري التحميل...</span>
+            </div>
+        `;
+
+        modal.show();
+
+        // تحديد نوع الملف من الامتداد
+        const extension = filename.split('.').pop().toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+            // للصور
+            previewContent.innerHTML = `
+                <img src="/documents/${docId}/view"
+                     class="img-fluid"
+                     style="max-height: 400px; max-width: 100%;"
+                     alt="${filename}"
+                     onload="this.style.opacity=1"
+                     onerror="this.parentElement.innerHTML='<div class=\\"alert alert-danger\\">خطأ في تحميل الصورة</div>'"
+                     style="opacity: 0; transition: opacity 0.3s;">
+            `;
+        } else if (extension === 'pdf') {
+            // لملفات PDF
+            previewContent.innerHTML = `
+                <iframe src="/documents/${docId}/view"
+                        width="100%"
+                        height="400px"
+                        style="border: 1px solid #ddd;">
+                    <p>متصفحك لا يدعم عرض ملفات PDF.
+                       <a href="/documents/${docId}/download">انقر هنا لتحميل الملف</a>
+                    </p>
+                </iframe>
+            `;
+        } else {
+            // للملفات الأخرى
+            previewContent.innerHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-file-alt fa-3x mb-3"></i>
+                    <h5>معاينة غير متاحة</h5>
+                    <p>لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
+                    <p><strong>نوع الملف:</strong> ${extension.toUpperCase()}</p>
+                </div>
+            `;
+        }
+    }
+    </script>
 </body>
 </html>
     ''', client=client)
