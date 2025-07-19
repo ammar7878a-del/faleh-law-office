@@ -538,6 +538,14 @@ def simple_file(filename):
             print("❌ Empty filename provided")
             return "اسم الملف فارغ", 400
 
+        # إصلاح المشكلة: إزالة أي مسارات خاطئة تحتوي على client/
+        if 'client/' in filename:
+            print(f"⚠️ Detected 'client/' in filename: {filename}")
+            # استخراج اسم الملف الصحيح قبل client/
+            clean_filename = filename.split('client/')[0].rstrip('_')
+            print(f"🧹 Cleaned filename: {clean_filename}")
+            filename = clean_filename
+
         # فك ترميز اسم الملف إذا كان مُرمز
         import urllib.parse
         try:
@@ -1641,10 +1649,36 @@ def debug_view():
     </html>
     '''
 
-@app.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    """عرض الملفات المرفوعة - إعادة توجيه للـ route الذي يعمل"""
-    return redirect(url_for('simple_file', filename=filename))
+@app.route('/test_file_issue')
+def test_file_issue():
+    """اختبار مشكلة الملفات"""
+    try:
+        # البحث عن أول مستند
+        document = ClientDocument.query.first()
+        if not document:
+            return "لا توجد مستندات للاختبار"
+
+        # إنشاء رابط الاختبار
+        test_url = url_for('simple_file', filename=document.filename)
+
+        return f"""
+        <html dir="rtl">
+        <head><title>اختبار الملفات</title></head>
+        <body style="font-family: Arial; padding: 20px;">
+            <h2>اختبار مشكلة الملفات</h2>
+            <p><strong>اسم الملف:</strong> {document.filename}</p>
+            <p><strong>الرابط المُنشأ:</strong> {test_url}</p>
+            <p><strong>اختبار الرابط:</strong> <a href="{test_url}" target="_blank">انقر هنا</a></p>
+            <hr>
+            <h3>معلومات إضافية:</h3>
+            <p><strong>ID المستند:</strong> {document.id}</p>
+            <p><strong>ID العميل:</strong> {document.client_id}</p>
+            <p><strong>الاسم الأصلي:</strong> {document.original_filename}</p>
+        </body>
+        </html>
+        """
+    except Exception as e:
+        return f"خطأ: {str(e)}"
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
