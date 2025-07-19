@@ -4189,6 +4189,10 @@ def test_preview_route():
         if not document:
             return "لا توجد مستندات للاختبار"
 
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        file_path = os.path.join(upload_folder, document.filename)
+        file_exists = os.path.exists(file_path)
+
         return f"""
         <html dir="rtl">
         <head><title>اختبار المعاينة</title></head>
@@ -4196,6 +4200,10 @@ def test_preview_route():
             <h2>اختبار route المعاينة</h2>
             <p><strong>المستند:</strong> {document.original_filename or document.filename}</p>
             <p><strong>ID:</strong> {document.id}</p>
+            <p><strong>مجلد الرفع:</strong> {upload_folder}</p>
+            <p><strong>مسار الملف:</strong> {file_path}</p>
+            <p><strong>الملف موجود:</strong> {'نعم' if file_exists else 'لا'}</p>
+            <hr>
             <p><strong>رابط المعاينة:</strong> <a href="/documents/{document.id}/view" target="_blank">/documents/{document.id}/view</a></p>
             <p><strong>رابط التحميل:</strong> <a href="/documents/{document.id}/download" target="_blank">/documents/{document.id}/download</a></p>
             <hr>
@@ -4205,18 +4213,55 @@ def test_preview_route():
             <div style="display: none; padding: 20px; background: #f8f9fa; border: 1px solid #ccc;">
                 لا يمكن عرض الصورة - قد يكون ملف PDF أو نوع آخر
             </div>
+            <hr>
+            <h3>اختبار المودال:</h3>
+            <button onclick="testModal()" class="btn btn-primary">اختبار المودال</button>
+
+            <script>
+            function testModal() {{
+                alert('سيتم اختبار المودال');
+                // محاكاة نفس الكود
+                console.log('Testing modal with ID: {document.id}');
+            }}
+            </script>
         </body>
         </html>
         """
     except Exception as e:
         return f"خطأ في الاختبار: {str(e)}"
 
+@app.route('/simple_preview/<int:doc_id>')
+def simple_preview(doc_id):
+    """معاينة بسيطة بدون مودال"""
+    try:
+        document = ClientDocument.query.get_or_404(doc_id)
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        file_path = os.path.join(upload_folder, document.filename)
+
+        if os.path.exists(file_path):
+            from flask import send_file
+            return send_file(file_path, as_attachment=False)
+        else:
+            return f"الملف غير موجود: {file_path}", 404
+
+    except Exception as e:
+        return f"خطأ: {str(e)}", 500
+
 @app.route('/documents/<int:document_id>/view')
 def documents_view_file(document_id):
     """عرض المستند في المتصفح (للمعاينة)"""
     try:
-        document = ClientDocument.query.get_or_404(document_id)
+        print(f"🔍 طلب معاينة للمستند ID: {document_id}")
+
+        document = ClientDocument.query.get(document_id)
+        if not document:
+            print(f"❌ المستند غير موجود: {document_id}")
+            return "المستند غير موجود", 404
+
+        print(f"📄 المستند موجود: {document.filename}")
+
         upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        print(f"📁 مجلد الرفع: {upload_folder}")
 
         # البحث عن الملف في عدة مواقع
         possible_paths = [
@@ -4226,19 +4271,26 @@ def documents_view_file(document_id):
 
         file_path = None
         for path in possible_paths:
+            print(f"🔍 البحث في: {path}")
             if os.path.exists(path):
                 file_path = path
+                print(f"✅ الملف موجود في: {path}")
                 break
+            else:
+                print(f"❌ الملف غير موجود في: {path}")
 
         if not file_path:
+            print(f"❌ الملف غير موجود في جميع المسارات")
             return f"""
             <html dir="rtl">
             <head><title>ملف غير موجود</title></head>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
                 <h2>⚠️ الملف غير موجود</h2>
                 <p>اسم الملف: {document.filename}</p>
-                <p>الوصف: {document.description}</p>
-                <p>يرجى رفع الملف مرة أخرى</p>
+                <p>المسارات المفحوصة:</p>
+                <ul>
+                    {''.join([f'<li>{path}</li>' for path in possible_paths])}
+                </ul>
                 <a href="/clients/{document.client_id}">العودة لصفحة العميل</a>
             </body>
             </html>
@@ -4253,6 +4305,8 @@ def documents_view_file(document_id):
         if mimetype is None:
             mimetype = 'application/octet-stream'
 
+        print(f"📋 نوع الملف: {mimetype}")
+
         # عرض الملف في المتصفح (inline) بدلاً من التحميل
         return send_file(
             file_path,
@@ -4261,6 +4315,10 @@ def documents_view_file(document_id):
         )
 
     except Exception as e:
+        print(f"❌ خطأ في المعاينة: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
         return f"""
         <html dir="rtl">
         <head><title>خطأ في العرض</title></head>
