@@ -1721,9 +1721,115 @@ def index():
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ office_settings.office_name }} - نظام إدارة المكتب القانوني</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS with fallback -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet"
+          onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.rtl.min.css';">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"
+          onerror="this.onerror=null;this.href='https://maxcdn.bootstrapcdn.com/font-awesome/6.4.0/css/all.min.css';">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet"
+          onerror="this.onerror=null;this.href='https://fonts.cdnfonts.com/css/cairo';">
+
+    <!-- Inline Bootstrap CSS as ultimate fallback -->
+    <style id="bootstrap-fallback" style="display: none;">
+        /* Bootstrap RTL Fallback CSS */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+        .row { display: flex; flex-wrap: wrap; margin: 0 -15px; }
+        .col, .col-md-6, .col-md-4, .col-md-3 { padding: 0 15px; flex: 1; }
+        .col-md-6 { flex: 0 0 50%; max-width: 50%; }
+        .col-md-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+        .col-md-3 { flex: 0 0 25%; max-width: 25%; }
+        .btn { display: inline-block; padding: 0.375rem 0.75rem; margin-bottom: 0; font-size: 1rem;
+               font-weight: 400; line-height: 1.5; text-align: center; text-decoration: none;
+               vertical-align: middle; cursor: pointer; border: 1px solid transparent;
+               border-radius: 0.25rem; transition: all 0.15s ease-in-out; }
+        .btn-primary { color: #fff; background-color: #007bff; border-color: #007bff; }
+        .btn-success { color: #fff; background-color: #28a745; border-color: #28a745; }
+        .btn-danger { color: #fff; background-color: #dc3545; border-color: #dc3545; }
+        .btn-warning { color: #212529; background-color: #ffc107; border-color: #ffc107; }
+        .btn-info { color: #fff; background-color: #17a2b8; border-color: #17a2b8; }
+        .btn-secondary { color: #fff; background-color: #6c757d; border-color: #6c757d; }
+        .card { position: relative; display: flex; flex-direction: column; min-width: 0;
+                word-wrap: break-word; background-color: #fff; background-clip: border-box;
+                border: 1px solid rgba(0,0,0,.125); border-radius: 0.25rem; }
+        .card-body { flex: 1 1 auto; padding: 1.25rem; }
+        .card-header { padding: 0.75rem 1.25rem; margin-bottom: 0; background-color: rgba(0,0,0,.03);
+                       border-bottom: 1px solid rgba(0,0,0,.125); }
+        .form-control { display: block; width: 100%; padding: 0.375rem 0.75rem; font-size: 1rem;
+                        font-weight: 400; line-height: 1.5; color: #495057; background-color: #fff;
+                        background-clip: padding-box; border: 1px solid #ced4da; border-radius: 0.25rem; }
+        .table { width: 100%; margin-bottom: 1rem; color: #212529; border-collapse: collapse; }
+        .table th, .table td { padding: 0.75rem; vertical-align: top; border-top: 1px solid #dee2e6; }
+        .table thead th { vertical-align: bottom; border-bottom: 2px solid #dee2e6; }
+        .navbar { position: relative; display: flex; flex-wrap: wrap; align-items: center;
+                  justify-content: space-between; padding: 0.5rem 1rem; }
+        .navbar-brand { display: inline-block; padding-top: 0.3125rem; padding-bottom: 0.3125rem;
+                        margin-left: 1rem; font-size: 1.25rem; line-height: inherit; white-space: nowrap; }
+        .alert { position: relative; padding: 0.75rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent;
+                 border-radius: 0.25rem; }
+        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+        .alert-warning { color: #856404; background-color: #fff3cd; border-color: #ffeaa7; }
+        .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+        .modal { position: fixed; top: 0; left: 0; z-index: 1050; display: none; width: 100%; height: 100%;
+                 overflow: hidden; outline: 0; }
+        .modal-dialog { position: relative; width: auto; margin: 0.5rem; pointer-events: none; }
+        .modal-content { position: relative; display: flex; flex-direction: column; width: 100%;
+                         pointer-events: auto; background-color: #fff; background-clip: padding-box;
+                         border: 1px solid rgba(0,0,0,.2); border-radius: 0.3rem; outline: 0; }
+        .modal-header { display: flex; align-items: flex-start; justify-content: space-between;
+                        padding: 1rem 1rem; border-bottom: 1px solid #dee2e6; border-top-left-radius: calc(0.3rem - 1px);
+                        border-top-right-radius: calc(0.3rem - 1px); }
+        .modal-body { position: relative; flex: 1 1 auto; padding: 1rem; }
+        .modal-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+                        padding: 0.75rem; border-top: 1px solid #dee2e6; border-bottom-right-radius: calc(0.3rem - 1px);
+                        border-bottom-left-radius: calc(0.3rem - 1px); }
+        .text-center { text-align: center !important; }
+        .text-right { text-align: right !important; }
+        .text-left { text-align: left !important; }
+        .d-flex { display: flex !important; }
+        .justify-content-between { justify-content: space-between !important; }
+        .align-items-center { align-items: center !important; }
+        .mb-3 { margin-bottom: 1rem !important; }
+        .mt-3 { margin-top: 1rem !important; }
+        .p-3 { padding: 1rem !important; }
+        .bg-light { background-color: #f8f9fa !important; }
+        .bg-primary { background-color: #007bff !important; }
+        .text-white { color: #fff !important; }
+        .border { border: 1px solid #dee2e6 !important; }
+        .rounded { border-radius: 0.25rem !important; }
+        .shadow { box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important; }
+        .img-fluid { max-width: 100%; height: auto; }
+        .img-thumbnail { padding: 0.25rem; background-color: #fff; border: 1px solid #dee2e6;
+                         border-radius: 0.25rem; max-width: 100%; height: auto; }
+        /* RTL Support */
+        [dir="rtl"] { direction: rtl; text-align: right; }
+        [dir="rtl"] .navbar-brand { margin-right: 1rem; margin-left: 0; }
+        [dir="rtl"] .modal-footer { justify-content: flex-start; }
+    </style>
+
+    <script>
+        // Check if Bootstrap CSS loaded, if not show fallback
+        document.addEventListener('DOMContentLoaded', function() {
+            var testEl = document.createElement('div');
+            testEl.className = 'container';
+            testEl.style.position = 'absolute';
+            testEl.style.visibility = 'hidden';
+            document.body.appendChild(testEl);
+
+            var computedStyle = window.getComputedStyle(testEl);
+            if (computedStyle.maxWidth === 'none' || computedStyle.maxWidth === '') {
+                console.warn('Bootstrap CSS failed to load, using fallback');
+                document.getElementById('bootstrap-fallback').style.display = 'block';
+                // Show a notification
+                var notification = document.createElement('div');
+                notification.innerHTML = '⚠️ تم تحميل التصميم الاحتياطي - قد يبدو الموقع مختلفاً قليلاً';
+                notification.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #ffc107; color: #000; padding: 10px; border-radius: 5px; z-index: 9999; font-size: 12px;';
+                document.body.appendChild(notification);
+                setTimeout(function() { notification.remove(); }, 5000);
+            }
+            document.body.removeChild(testEl);
+        });
+    </script>
     <link href="/static/css/custom.css" rel="stylesheet">
     <style>
         .riyal-symbol {
@@ -2169,7 +2275,61 @@ def index():
     </div>
 
     <!-- JavaScript للتفاعل -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+            onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js';"></script>
+
+    <!-- Bootstrap JS Fallback -->
+    <script>
+        // Check if Bootstrap JS loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof bootstrap === 'undefined') {
+                console.warn('Bootstrap JS failed to load, adding basic functionality');
+
+                // Basic modal functionality
+                window.showModal = function(modalId) {
+                    var modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.style.display = 'block';
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        modal.style.zIndex = '1050';
+                    }
+                };
+
+                window.hideModal = function(modalId) {
+                    var modal = document.getElementById(modalId);
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                };
+
+                // Basic dropdown functionality
+                document.addEventListener('click', function(e) {
+                    if (e.target.matches('.dropdown-toggle')) {
+                        e.preventDefault();
+                        var dropdown = e.target.nextElementSibling;
+                        if (dropdown && dropdown.classList.contains('dropdown-menu')) {
+                            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+                        }
+                    }
+                });
+
+                // Close dropdowns when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!e.target.matches('.dropdown-toggle')) {
+                        var dropdowns = document.querySelectorAll('.dropdown-menu');
+                        dropdowns.forEach(function(dropdown) {
+                            dropdown.style.display = 'none';
+                        });
+                    }
+                });
+            }
+        });
+    </script>
     <script>
         // تأثيرات الرسوم المتحركة
         document.addEventListener('DOMContentLoaded', function() {
