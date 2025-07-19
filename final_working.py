@@ -575,6 +575,24 @@ def simple_file(filename):
         # البحث باستخدام الاسم الأصلي والمُفكك
         search_names = [filename, decoded_filename]
 
+        # إضافة البحث الذكي للملفات المشابهة (نفس النص، timestamps مختلفة)
+        if '_' in decoded_filename:
+            parts = decoded_filename.split('_', 2)  # تقسيم إلى تاريخ_وقت_اسم
+            if len(parts) >= 3:
+                name_part = parts[2]  # الجزء بعد التاريخ والوقت
+                print(f"🔍 البحث عن ملفات تحتوي على: {name_part}")
+
+                # البحث في جميع الملفات
+                if os.path.exists(upload_folder):
+                    try:
+                        for file in os.listdir(upload_folder):
+                            if name_part in file and os.path.isfile(os.path.join(upload_folder, file)):
+                                if file not in search_names:
+                                    search_names.append(file)
+                                    print(f"✅ وجد ملف مشابه: {file}")
+                    except Exception as e:
+                        print(f"⚠️ خطأ في البحث عن الملفات المشابهة: {e}")
+
         # إضافة أشكال مختلفة من اسم الملف للبحث
         additional_names = []
         try:
