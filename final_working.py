@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 from functools import wraps
 import os
 import mimetypes
+import threading
+import time
+import json
 
 app = Flask(__name__)
 
@@ -22,7 +25,20 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'يرجى تسجيل الدخول للوصول لهذه الصفحة'
 login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
+
+# إعدادات قاعدة البيانات - دعم PostgreSQL للخادم السحابي
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    # إصلاح مشكلة PostgreSQL URL في Heroku/Render
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    print(f"🗄️ استخدام قاعدة بيانات خارجية: PostgreSQL")
+else:
+    # استخدام SQLite محلياً
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
+    print(f"🗄️ استخدام قاعدة بيانات محلية: SQLite")
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # إعدادات رفع الملفات - للخادم السحابي
@@ -142,6 +158,91 @@ def get_navbar_brand_global():
     return get_navbar_brand()
 
 db = SQLAlchemy(app)
+
+# نظام النسخ الاحتياطي التلقائي
+def auto_backup_database():
+    """نسخ احتياطي تلقائي لقاعدة البيانات"""
+    try:
+        print("🔄 بدء النسخ الاحتياطي التلقائي...")
+
+        # تصدير البيانات إلى JSON
+        backup_data = {
+            'timestamp': datetime.now().isoformat(),
+            'tables': {}
+        }
+
+        # تصدير جدول المستخدمين
+        users = User.query.all()
+        backup_data['tables']['users'] = []
+        for user in users:
+            backup_data['tables']['users'].append({
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'phone': user.phone,
+                'role': user.role,
+                'is_active': user.is_active,
+                'password_hash': user.password_hash,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            })
+
+        # تصدير جدول العملاء
+        clients = Client.query.all()
+        backup_data['tables']['clients'] = []
+        for client in clients:
+            backup_data['tables']['clients'].append({
+                'id': client.id,
+                'first_name': client.first_name,
+                'last_name': client.last_name,
+                'email': client.email,
+                'phone': client.phone,
+                'national_id': client.national_id,
+                'address': client.address,
+                'created_at': client.created_at.isoformat() if client.created_at else None
+            })
+
+        # حفظ النسخة الاحتياطية
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'auto_backup_{timestamp}.json'
+
+        with open(backup_filename, 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=2)
+
+        print(f"✅ تم إنشاء نسخة احتياطية: {backup_filename}")
+
+        # حذف النسخ القديمة (الاحتفاظ بآخر 5 نسخ فقط)
+        import glob
+        backup_files = sorted(glob.glob('auto_backup_*.json'), reverse=True)
+        for old_backup in backup_files[5:]:
+            try:
+                os.remove(old_backup)
+                print(f"🗑️ تم حذف النسخة القديمة: {old_backup}")
+            except:
+                pass
+
+    except Exception as e:
+        print(f"❌ خطأ في النسخ الاحتياطي: {e}")
+
+def start_backup_scheduler():
+    """بدء جدولة النسخ الاحتياطي"""
+    def backup_loop():
+        while True:
+            try:
+                # نسخ احتياطي كل 6 ساعات
+                time.sleep(6 * 60 * 60)  # 6 ساعات
+                with app.app_context():
+                    auto_backup_database()
+            except Exception as e:
+                print(f"❌ خطأ في جدولة النسخ الاحتياطي: {e}")
+                time.sleep(60)  # انتظار دقيقة قبل المحاولة مرة أخرى
+
+    # تشغيل النسخ الاحتياطي في thread منفصل
+    backup_thread = threading.Thread(target=backup_loop, daemon=True)
+    backup_thread.start()
+    print("🤖 تم تفعيل النسخ الاحتياطي التلقائي (كل 6 ساعات)")
+
 # تعطيل نظام تسجيل الدخول مؤقتاً
 # login_manager = LoginManager()
 # login_manager.init_app(app)
@@ -10109,6 +10210,10 @@ if __name__ == '__main__':
 
     try:
         print("🔄 بدء تشغيل الخادم...")
+
+        # تفعيل النسخ الاحتياطي التلقائي
+        start_backup_scheduler()
+
         # إعدادات للاستضافة الخارجية
         port = int(os.environ.get('PORT', 10000))  # Render يستخدم PORT
         host = os.environ.get('HOST', '0.0.0.0')   # للإنتاج على Render
