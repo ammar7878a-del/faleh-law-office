@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+
+# معالجة خطأ psycopg2 - منع استيراده إذا لم يكن متاحاً
+import sys
+try:
+    import psycopg2
+except ImportError:
+    # إنشاء module وهمي لمنع الأخطاء
+    class MockPsycopg2:
+        def __getattr__(self, name):
+            raise ImportError("psycopg2 not available - using SQLite instead")
+
+    sys.modules['psycopg2'] = MockPsycopg2()
+    sys.modules['psycopg2.extensions'] = MockPsycopg2()
+    sys.modules['psycopg2.extras'] = MockPsycopg2()
+    print("⚠️ psycopg2 غير متاح - سيتم استخدام SQLite")
+
 from flask import Flask, render_template_string, request, redirect, url_for, flash, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
 # تعطيل مؤقت لنظام تسجيل الدخول
@@ -30,11 +46,17 @@ app.config['SECRET_KEY'] = 'final-working-key'
 try:
     DATABASE_URL = os.environ.get('DATABASE_URL')
     if DATABASE_URL and 'postgresql' in DATABASE_URL:
-        # محاولة استخدام PostgreSQL إذا كان متاحاً
-        if DATABASE_URL.startswith('postgres://'):
-            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-        print(f"🗄️ محاولة استخدام قاعدة بيانات خارجية: PostgreSQL")
+        # التحقق من توفر psycopg2 قبل استخدام PostgreSQL
+        try:
+            import psycopg2
+            # محاولة استخدام PostgreSQL إذا كان متاحاً
+            if DATABASE_URL.startswith('postgres://'):
+                DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+            print(f"🗄️ محاولة استخدام قاعدة بيانات خارجية: PostgreSQL")
+        except ImportError:
+            print(f"⚠️ psycopg2 غير متاح - التحويل إلى SQLite")
+            raise Exception("psycopg2 غير متاح")
     else:
         raise Exception("استخدام SQLite كخيار افتراضي")
 except Exception as e:
