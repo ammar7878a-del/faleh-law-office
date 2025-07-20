@@ -5,3 +5,4 @@ Werkzeug==2.3.7
 SQLAlchemy==1.4.53
 python-dateutil==2.8.2
 gunicorn==21.2.0
+pg8000==1.30.3

@@ -42,27 +42,37 @@ login_manager.login_message = 'يرجى تسجيل الدخول للوصول ل�
 login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
 
-# إعدادات قاعدة البيانات - استخدام SQLite دائماً لتجنب الأخطاء
+# إعدادات قاعدة البيانات - دعم PostgreSQL للحفظ الدائم
 try:
     DATABASE_URL = os.environ.get('DATABASE_URL')
-    if DATABASE_URL and 'postgresql' in DATABASE_URL:
-        # التحقق من توفر psycopg2 قبل استخدام PostgreSQL
+    if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
+        # محاولة استخدام PostgreSQL للحفظ الدائم
         try:
-            import psycopg2
-            # محاولة استخدام PostgreSQL إذا كان متاحاً
+            # إصلاح رابط PostgreSQL إذا لزم الأمر
             if DATABASE_URL.startswith('postgres://'):
                 DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+            # استخدام pg8000 بدلاً من psycopg2
             app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-            print(f"🗄️ محاولة استخدام قاعدة بيانات خارجية: PostgreSQL")
-        except ImportError:
-            print(f"⚠️ psycopg2 غير متاح - التحويل إلى SQLite")
-            raise Exception("psycopg2 غير متاح")
+            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+                'pool_pre_ping': True,
+                'pool_recycle': 300,
+            }
+            print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL")
+            print(f"🔒 البيانات محفوظة بشكل دائم!")
+
+        except Exception as pg_error:
+            print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
+            raise Exception("فشل في الاتصال بـ PostgreSQL")
     else:
-        raise Exception("استخدام SQLite كخيار افتراضي")
+        raise Exception("لا يوجد رابط قاعدة بيانات خارجية")
+
 except Exception as e:
-    # استخدام SQLite كخيار آمن
+    # استخدام SQLite كخيار احتياطي (البيانات ستُحذف عند إعادة التشغيل)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
-    print(f"🗄️ استخدام قاعدة بيانات محلية: SQLite ({e})")
+    print(f"⚠️ استخدام قاعدة بيانات محلية: SQLite")
+    print(f"🚨 تحذير: البيانات ستُحذف عند إعادة تشغيل الخادم!")
+    print(f"💡 لحفظ البيانات دائماً، أضف DATABASE_URL في متغيرات البيئة")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -226,6 +236,33 @@ def auto_backup_database():
                 'national_id': client.national_id,
                 'address': client.address,
                 'created_at': client.created_at.isoformat() if client.created_at else None
+            })
+
+        # تصدير جدول القضايا
+        cases = Case.query.all()
+        backup_data['tables']['cases'] = []
+        for case in cases:
+            backup_data['tables']['cases'].append({
+                'id': case.id,
+                'title': case.title,
+                'description': case.description,
+                'status': case.status,
+                'client_id': case.client_id,
+                'created_at': case.created_at.isoformat() if case.created_at else None
+            })
+
+        # تصدير جدول الفواتير
+        invoices = Invoice.query.all()
+        backup_data['tables']['invoices'] = []
+        for invoice in invoices:
+            backup_data['tables']['invoices'].append({
+                'id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+                'client_id': invoice.client_id,
+                'case_id': invoice.case_id,
+                'amount': float(invoice.amount) if invoice.amount else 0,
+                'status': invoice.status,
+                'created_at': invoice.created_at.isoformat() if invoice.created_at else None
             })
 
         # حفظ النسخة الاحتياطية
