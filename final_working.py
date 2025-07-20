@@ -1850,15 +1850,11 @@ def login():
         else:
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
-                # فحص صلاحية الدخول - المدير فقط
-                if user.role != 'admin':
-                    flash('عذراً، تم إلغاء صلاحية الدخول للمحامين والسكرتارية. يُسمح للمدير فقط بالدخول.', 'warning')
-                else:
-                    login_user(user, remember=request.form.get('remember_me'))
-                    next_page = request.args.get('next')
-                    if not next_page or not next_page.startswith('/'):
-                        next_page = '/'
-                    return redirect(next_page)
+                login_user(user, remember=request.form.get('remember_me'))
+                next_page = request.args.get('next')
+                if not next_page or not next_page.startswith('/'):
+                    next_page = '/'
+                return redirect(next_page)
             else:
                 flash('اسم المستخدم أو كلمة المرور غير صحيحة', 'danger')
 
