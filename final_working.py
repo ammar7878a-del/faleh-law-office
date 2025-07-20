@@ -1935,28 +1935,28 @@ def index():
     try:
         # إزالة متطلب تسجيل الدخول مؤقتاً
         if True:  # current_user.is_authenticated:
-        # الحصول على إعدادات المكتب
-        office_settings = OfficeSettings.get_settings()
+            # الحصول على إعدادات المكتب
+            office_settings = OfficeSettings.get_settings()
 
-        clients_count = Client.query.count()
-        documents_count = ClientDocument.query.count()
-        cases_count = Case.query.count()
-        appointments_count = Appointment.query.count()
-        invoices_count = Invoice.query.count()
-        pending_invoices = Invoice.query.filter_by(status='pending').count()
-        today_appointments = Appointment.query.filter(
-            db.func.date(Appointment.appointment_date) == datetime.now().date()
-        ).count()
+            clients_count = Client.query.count()
+            documents_count = ClientDocument.query.count()
+            cases_count = Case.query.count()
+            appointments_count = Appointment.query.count()
+            invoices_count = Invoice.query.count()
+            pending_invoices = Invoice.query.filter_by(status='pending').count()
+            today_appointments = Appointment.query.filter(
+                db.func.date(Appointment.appointment_date) == datetime.now().date()
+            ).count()
 
-        # إحصائيات المصروفات
-        expenses_count = Expense.query.count()
-        total_expenses = db.session.query(db.func.sum(Expense.amount)).scalar() or 0
-        monthly_expenses = db.session.query(db.func.sum(Expense.amount)).filter(
-            db.func.extract('month', Expense.expense_date) == datetime.now().month,
-            db.func.extract('year', Expense.expense_date) == datetime.now().year
-        ).scalar() or 0
-        
-        return render_template_string('''
+            # إحصائيات المصروفات
+            expenses_count = Expense.query.count()
+            total_expenses = db.session.query(db.func.sum(Expense.amount)).scalar() or 0
+            monthly_expenses = db.session.query(db.func.sum(Expense.amount)).filter(
+                db.func.extract('month', Expense.expense_date) == datetime.now().month,
+                db.func.extract('year', Expense.expense_date) == datetime.now().year
+            ).scalar() or 0
+
+            return render_template_string('''
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -2625,8 +2625,8 @@ def index():
              today_appointments=today_appointments, office_settings=office_settings,
              expenses_count=expenses_count, total_expenses=total_expenses, monthly_expenses=monthly_expenses,
              navbar_brand=get_navbar_brand())
-    else:
-        return redirect(url_for('login'))
+        else:
+            return redirect(url_for('login'))
     except Exception as e:
         print(f"❌ خطأ في الصفحة الرئيسية: {e}")
         return f'''
