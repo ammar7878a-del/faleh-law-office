@@ -281,8 +281,19 @@ def permission_required(permission):
     return decorator
 
 def admin_required(f):
-    """تعطيل مؤقت للتحقق من صلاحية المدير"""
-    return f
+    """فحص صلاحية المدير - مفعل"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('يجب تسجيل الدخول أولاً', 'danger')
+            return redirect(url_for('login'))
+
+        if current_user.role != 'admin':
+            flash('عذراً، هذه الصفحة متاحة للمدير فقط. ليس لديك صلاحية للوصول إليها.', 'danger')
+            return redirect(url_for('index'))
+
+        return f(*args, **kwargs)
+    return decorated_function
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -1839,11 +1850,15 @@ def login():
         else:
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
-                login_user(user, remember=request.form.get('remember_me'))
-                next_page = request.args.get('next')
-                if not next_page or not next_page.startswith('/'):
-                    next_page = '/'
-                return redirect(next_page)
+                # فحص صلاحية الدخول - المدير فقط
+                if user.role != 'admin':
+                    flash('عذراً، تم إلغاء صلاحية الدخول للمحامين والسكرتارية. يُسمح للمدير فقط بالدخول.', 'warning')
+                else:
+                    login_user(user, remember=request.form.get('remember_me'))
+                    next_page = request.args.get('next')
+                    if not next_page or not next_page.startswith('/'):
+                        next_page = '/'
+                    return redirect(next_page)
             else:
                 flash('اسم المستخدم أو كلمة المرور غير صحيحة', 'danger')
 
@@ -2480,13 +2495,13 @@ def index():
                             </div>
                         </a>
                     </div>
-                    {% if user_has_permission('manage_users') %}
+                    {% if current_user.role == 'admin' %}
                     <div class="col-lg-3 col-md-6 mb-3">
                         <a href="/users" class="btn btn-dark btn-lg w-100">
                             <i class="fas fa-users-cog me-2"></i>
                             <div>
                                 <strong>إدارة المستخدمين</strong>
-                                <small class="d-block">إعدادات النظام</small>
+                                <small class="d-block">للمدير فقط</small>
                             </div>
                         </a>
                     </div>
@@ -8125,7 +8140,7 @@ def mark_paid(invoice_id):
 
 @app.route('/users')
 @login_required
-@permission_required('manage_users')
+@admin_required
 def users():
     """صفحة إدارة المستخدمين"""
     users_list = User.query.all()
@@ -8251,7 +8266,7 @@ def users():
 
 @app.route('/add_user', methods=['GET', 'POST'])
 @login_required
-@permission_required('manage_users')
+@admin_required
 def add_user():
     """إضافة مستخدم جديد"""
     if request.method == 'POST':
@@ -8411,7 +8426,7 @@ def add_user():
 
 @app.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
 @login_required
-@permission_required('manage_users')
+@admin_required
 def edit_user(user_id):
     """تعديل بيانات المستخدم"""
     user = User.query.get_or_404(user_id)
@@ -8797,7 +8812,7 @@ def edit_profile():
 
 @app.route('/delete_user/<int:user_id>')
 @login_required
-@permission_required('manage_users')
+@admin_required
 def delete_user(user_id):
     """حذف المستخدم"""
     user = User.query.get_or_404(user_id)
@@ -9703,6 +9718,7 @@ def reports():
 
 @app.route('/office_settings')
 @login_required
+@admin_required
 def office_settings():
     """صفحة إعدادات المكتب"""
     # فحص صلاحية المدير
