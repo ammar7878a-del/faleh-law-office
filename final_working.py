@@ -26,18 +26,21 @@ login_manager.login_message = 'يرجى تسجيل الدخول للوصول ل�
 login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
 
-# إعدادات قاعدة البيانات - دعم PostgreSQL للخادم السحابي
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    # إصلاح مشكلة PostgreSQL URL في Heroku/Render
-    if DATABASE_URL.startswith('postgres://'):
-        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-    print(f"🗄️ استخدام قاعدة بيانات خارجية: PostgreSQL")
-else:
-    # استخدام SQLite محلياً
+# إعدادات قاعدة البيانات - استخدام SQLite دائماً لتجنب الأخطاء
+try:
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL and 'postgresql' in DATABASE_URL:
+        # محاولة استخدام PostgreSQL إذا كان متاحاً
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+        print(f"🗄️ محاولة استخدام قاعدة بيانات خارجية: PostgreSQL")
+    else:
+        raise Exception("استخدام SQLite كخيار افتراضي")
+except Exception as e:
+    # استخدام SQLite كخيار آمن
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
-    print(f"🗄️ استخدام قاعدة بيانات محلية: SQLite")
+    print(f"🗄️ استخدام قاعدة بيانات محلية: SQLite ({e})")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -1929,8 +1932,9 @@ def logout():
 @app.route('/')
 @login_required
 def index():
-    # إزالة متطلب تسجيل الدخول مؤقتاً
-    if True:  # current_user.is_authenticated:
+    try:
+        # إزالة متطلب تسجيل الدخول مؤقتاً
+        if True:  # current_user.is_authenticated:
         # الحصول على إعدادات المكتب
         office_settings = OfficeSettings.get_settings()
 
@@ -2623,6 +2627,21 @@ def index():
              navbar_brand=get_navbar_brand())
     else:
         return redirect(url_for('login'))
+    except Exception as e:
+        print(f"❌ خطأ في الصفحة الرئيسية: {e}")
+        return f'''
+        <html dir="rtl">
+        <head><title>خطأ في النظام</title></head>
+        <body style="font-family: Arial; padding: 20px; text-align: center;">
+            <h1>🚨 خطأ في النظام</h1>
+            <p>عذراً، حدث خطأ في تشغيل النظام</p>
+            <p><strong>تفاصيل الخطأ:</strong> {str(e)}</p>
+            <p><a href="/login" style="color: blue;">العودة لتسجيل الدخول</a></p>
+            <hr>
+            <p><small>إذا استمر الخطأ، تواصل مع المطور</small></p>
+        </body>
+        </html>
+        '''
 
 # تم نقل route تسجيل الدخول إلى الأعلى
 
@@ -10211,15 +10230,19 @@ if __name__ == '__main__':
     try:
         print("🔄 بدء تشغيل الخادم...")
 
-        # تفعيل النسخ الاحتياطي التلقائي
-        start_backup_scheduler()
+        # تفعيل النسخ الاحتياطي التلقائي (مع معالجة الأخطاء)
+        try:
+            start_backup_scheduler()
+        except Exception as backup_error:
+            print(f"⚠️ تحذير: لم يتم تفعيل النسخ الاحتياطي: {backup_error}")
 
         # إعدادات للاستضافة الخارجية
         port = int(os.environ.get('PORT', 10000))  # Render يستخدم PORT
         host = os.environ.get('HOST', '0.0.0.0')   # للإنتاج على Render
         debug_mode = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-        app.run(debug=debug_mode, host=host, port=port)
+        print(f"🚀 تشغيل الخادم على {host}:{port}")
+        app.run(debug=debug_mode, host=host, port=port, threaded=True)
     except Exception as e:
         print(f"❌ خطأ في تشغيل الخادم: {e}")
         print("💡 تأكد من أن البورت غير مستخدم من برنامج آخر")
