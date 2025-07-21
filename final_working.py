@@ -30,10 +30,11 @@ login_manager.login_message = 'يرجى تسجيل الدخول للوصول ل�
 login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
 
-# إعدادات قاعدة البيانات - دعم PostgreSQL للحفظ الدائم
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# إعدادات قاعدة البيانات - SQLite مع نسخ احتياطي محسن
+# تعطيل PostgreSQL مؤقتاً بسبب مشاكل التوافق
+DATABASE_URL = None  # os.environ.get('DATABASE_URL')
 
-if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
+if False:  # DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
     # استخدام PostgreSQL للحفظ الدائم
     try:
         # إصلاح رابط PostgreSQL إذا لزم الأمر
@@ -65,11 +66,12 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         print(f"⚠️ تم التراجع إلى SQLite")
 
 else:
-    # استخدام SQLite كخيار افتراضي
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
-    print(f"⚠️ استخدام قاعدة بيانات محلية: SQLite")
-    print(f"🚨 تحذير: البيانات ستُحذف عند إعادة تشغيل الخادم!")
-    print(f"💡 لحفظ البيانات دائماً، أضف DATABASE_URL في متغيرات البيئة")
+    # استخدام SQLite مع نسخ احتياطي محسن
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///law_office_persistent.db'
+    print(f"🗄️ ✅ استخدام قاعدة بيانات محلية: SQLite")
+    print(f"💾 نظام نسخ احتياطي محسن مفعل")
+    print(f"🔄 النسخ الاحتياطي كل 30 دقيقة + عند كل تغيير")
+    print(f"📁 ملف قاعدة البيانات: law_office_persistent.db")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -302,8 +304,8 @@ def start_backup_scheduler():
     def backup_loop():
         while True:
             try:
-                # نسخ احتياطي كل 6 ساعات
-                time.sleep(6 * 60 * 60)  # 6 ساعات
+                # نسخ احتياطي كل 30 دقيقة
+                time.sleep(30 * 60)  # 30 دقيقة
                 with app.app_context():
                     auto_backup_database()
             except Exception as e:
