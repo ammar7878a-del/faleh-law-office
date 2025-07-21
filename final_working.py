@@ -59,6 +59,14 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
         print(f"🔒 البيانات محفوظة بشكل دائم!")
 
+        # إنشاء الجداول في PostgreSQL إذا لم تكن موجودة
+        try:
+            with app.app_context():
+                db.create_all()
+                print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
+        except Exception as create_error:
+            print(f"⚠️ خطأ في إنشاء الجداول: {create_error}")
+
     except Exception as pg_error:
         print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
         # التراجع إلى SQLite
