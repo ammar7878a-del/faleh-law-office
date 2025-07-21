@@ -193,18 +193,7 @@ def get_navbar_brand_global():
 
 db = SQLAlchemy(app)
 
-# إنشاء الجداول تلقائياً عند بدء التطبيق
-def init_database():
-    """إنشاء الجداول إذا لم تكن موجودة"""
-    try:
-        with app.app_context():
-            db.create_all()
-            print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
-    except Exception as e:
-        print(f"⚠️ خطأ في إنشاء الجداول: {e}")
-
-# تنفيذ إنشاء الجداول
-init_database()
+# سيتم إنشاء الجداول في النهاية بعد تعريف جميع النماذج
 
 # نظام النسخ الاحتياطي التلقائي
 def auto_backup_database():
@@ -10196,6 +10185,50 @@ def update_office_settings():
         flash(f'حدث خطأ أثناء حفظ الإعدادات: {str(e)}', 'error')
 
     return redirect(url_for('office_settings'))
+
+# إنشاء الجداول تلقائياً عند بدء التطبيق
+def init_database():
+    """إنشاء الجداول إذا لم تكن موجودة"""
+    try:
+        with app.app_context():
+            db.create_all()
+            print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
+
+            # إنشاء المستخدم المدير الافتراضي
+            if User.query.count() == 0:
+                admin = User(
+                    username='admin',
+                    first_name='المدير',
+                    last_name='العام',
+                    role='admin'
+                )
+                admin.set_password('admin123')
+                db.session.add(admin)
+                db.session.commit()
+                print("✅ تم إنشاء المستخدم المدير الافتراضي")
+
+            # إنشاء إعدادات المكتب الافتراضية
+            if OfficeSettings.query.count() == 0:
+                default_settings = OfficeSettings(
+                    office_name='مكتب فالح آل عيسى للمحاماة',
+                    office_name_en='Faleh Al Issa Law Office',
+                    address='الرياض، المملكة العربية السعودية',
+                    city='الرياض',
+                    country='المملكة العربية السعودية',
+                    phone_1='+966501234567',
+                    email='info@falehlaw.com',
+                    currency='ريال سعودي',
+                    language='ar'
+                )
+                db.session.add(default_settings)
+                db.session.commit()
+                print("✅ تم إنشاء إعدادات المكتب الافتراضية")
+
+    except Exception as e:
+        print(f"⚠️ خطأ في إنشاء الجداول: {e}")
+
+# تنفيذ إنشاء الجداول
+init_database()
 
 if __name__ == '__main__':
     with app.app_context():
