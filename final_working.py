@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 
-# معالجة خطأ psycopg2 - منع استيراده إذا لم يكن متاحاً
+# إعداد دعم PostgreSQL باستخدام pg8000
 import sys
-try:
-    import psycopg2
-except ImportError:
-    # إنشاء module وهمي لمنع الأخطاء
-    class MockPsycopg2:
-        def __getattr__(self, name):
-            raise ImportError("psycopg2 not available - using SQLite instead")
-
-    sys.modules['psycopg2'] = MockPsycopg2()
-    sys.modules['psycopg2.extensions'] = MockPsycopg2()
-    sys.modules['psycopg2.extras'] = MockPsycopg2()
-    print("⚠️ psycopg2 غير متاح - سيتم استخدام SQLite")
 
 from flask import Flask, render_template_string, request, redirect, url_for, flash, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
@@ -43,32 +31,37 @@ login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
 
 # إعدادات قاعدة البيانات - دعم PostgreSQL للحفظ الدائم
-try:
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
-        # محاولة استخدام PostgreSQL للحفظ الدائم
-        try:
-            # إصلاح رابط PostgreSQL إذا لزم الأمر
-            if DATABASE_URL.startswith('postgres://'):
-                DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-            # استخدام pg8000 بدلاً من psycopg2
-            app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                'pool_pre_ping': True,
-                'pool_recycle': 300,
-            }
-            print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL")
-            print(f"🔒 البيانات محفوظة بشكل دائم!")
+if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
+    # استخدام PostgreSQL للحفظ الدائم
+    try:
+        # إصلاح رابط PostgreSQL إذا لزم الأمر
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        except Exception as pg_error:
-            print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
-            raise Exception("فشل في الاتصال بـ PostgreSQL")
-    else:
-        raise Exception("لا يوجد رابط قاعدة بيانات خارجية")
+        # إضافة pg8000 كمحرك قاعدة البيانات
+        if '+pg8000' not in DATABASE_URL:
+            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://')
 
-except Exception as e:
-    # استخدام SQLite كخيار احتياطي (البيانات ستُحذف عند إعادة التشغيل)
+        app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_timeout': 20,
+            'max_overflow': 0
+        }
+        print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
+        print(f"🔒 البيانات محفوظة بشكل دائم!")
+
+    except Exception as pg_error:
+        print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
+        # التراجع إلى SQLite
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
+        print(f"⚠️ تم التراجع إلى SQLite")
+
+else:
+    # استخدام SQLite كخيار افتراضي
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
     print(f"⚠️ استخدام قاعدة بيانات محلية: SQLite")
     print(f"🚨 تحذير: البيانات ستُحذف عند إعادة تشغيل الخادم!")
