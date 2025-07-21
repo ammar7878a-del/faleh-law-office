@@ -59,14 +59,6 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
         print(f"🔒 البيانات محفوظة بشكل دائم!")
 
-        # إنشاء الجداول في PostgreSQL إذا لم تكن موجودة
-        try:
-            with app.app_context():
-                db.create_all()
-                print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
-        except Exception as create_error:
-            print(f"⚠️ خطأ في إنشاء الجداول: {create_error}")
-
     except Exception as pg_error:
         print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
         # التراجع إلى SQLite
@@ -199,6 +191,19 @@ def get_navbar_brand_global():
     return get_navbar_brand()
 
 db = SQLAlchemy(app)
+
+# إنشاء الجداول تلقائياً عند بدء التطبيق
+def init_database():
+    """إنشاء الجداول إذا لم تكن موجودة"""
+    try:
+        with app.app_context():
+            db.create_all()
+            print("✅ تم إنشاء/تحديث جداول قاعدة البيانات")
+    except Exception as e:
+        print(f"⚠️ خطأ في إنشاء الجداول: {e}")
+
+# تنفيذ إنشاء الجداول
+init_database()
 
 # نظام النسخ الاحتياطي التلقائي
 def auto_backup_database():
