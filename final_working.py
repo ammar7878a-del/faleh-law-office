@@ -40,21 +40,21 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         if DATABASE_URL.startswith('postgres://'):
             DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        # إضافة pg8000 كمحرك قاعدة البيانات
+        # إضافة pg8000 كمحرك قاعدة البيانات مع SSL
         if '+pg8000' not in DATABASE_URL:
             DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://')
 
-        # إزالة أي معاملات SSL من الرابط لتجنب مشاكل pg8000
-        if '?sslmode=' in DATABASE_URL:
-            DATABASE_URL = DATABASE_URL.split('?sslmode=')[0]
-
+        # إضافة SSL للاتصال الآمن مع pg8000
+        import ssl
         app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
             'pool_timeout': 20,
-            'max_overflow': 0
-            # إزالة connect_args لتجنب مشاكل SSL مع pg8000
+            'max_overflow': 0,
+            'connect_args': {
+                'ssl_context': ssl.create_default_context()
+            }
         }
         print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
         print(f"🔒 البيانات محفوظة بشكل دائم!")
