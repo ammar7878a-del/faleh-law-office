@@ -40,13 +40,13 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         if DATABASE_URL.startswith('postgres://'):
             DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        # إضافة pg8000 كمحرك قاعدة البيانات مع SSL
+        # إضافة pg8000 كمحرك قاعدة البيانات
         if '+pg8000' not in DATABASE_URL:
             DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://')
 
-        # إضافة SSL للاتصال الآمن
-        if '?sslmode=' not in DATABASE_URL:
-            DATABASE_URL += '?sslmode=require'
+        # إزالة أي معاملات SSL من الرابط لتجنب مشاكل pg8000
+        if '?sslmode=' in DATABASE_URL:
+            DATABASE_URL = DATABASE_URL.split('?sslmode=')[0]
 
         app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
