@@ -40,12 +40,11 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
         if DATABASE_URL.startswith('postgres://'):
             DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        # إضافة pg8000 كمحرك قاعدة البيانات مع SSL
-        if '+pg8000' not in DATABASE_URL:
-            DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+pg8000://')
+        # إصلاح رابط PostgreSQL إذا لزم الأمر
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-        # إضافة SSL للاتصال الآمن مع pg8000
-        import ssl
+        # إعدادات PostgreSQL مع psycopg2
         app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
@@ -53,10 +52,10 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
             'pool_timeout': 20,
             'max_overflow': 0,
             'connect_args': {
-                'ssl_context': ssl.create_default_context()
+                'sslmode': 'require'
             }
         }
-        print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
+        print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع psycopg2")
         print(f"🔒 البيانات محفوظة بشكل دائم!")
 
     except Exception as pg_error:
