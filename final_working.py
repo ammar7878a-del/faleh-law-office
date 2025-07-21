@@ -53,10 +53,8 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
             'pool_pre_ping': True,
             'pool_recycle': 300,
             'pool_timeout': 20,
-            'max_overflow': 0,
-            'connect_args': {
-                'ssl_context': True  # pg8000 يستخدم ssl_context بدلاً من sslmode
-            }
+            'max_overflow': 0
+            # إزالة connect_args لتجنب مشاكل SSL مع pg8000
         }
         print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
         print(f"🔒 البيانات محفوظة بشكل دائم!")
