@@ -55,7 +55,7 @@ if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL)
             'pool_timeout': 20,
             'max_overflow': 0,
             'connect_args': {
-                'sslmode': 'require'
+                'ssl_context': True  # pg8000 يستخدم ssl_context بدلاً من sslmode
             }
         }
         print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع pg8000")
