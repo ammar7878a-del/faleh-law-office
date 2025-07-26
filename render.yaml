@@ -1,23 +1,25 @@
 services:
   - type: web
-    name: law-office-system
+    name: faleh-law-office
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python final_working.py
+    startCommand: gunicorn --bind 0.0.0.0:$PORT final_working:app
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: PORT
-        value: 10000
-      - key: HOST
-        value: 0.0.0.0
-      - key: DEBUG
-        value: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: faleh-postgres
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
     healthCheckPath: /
     
 databases:
-  - name: law-office-db
-    databaseName: law_office
-    user: law_office_user
+  - name: faleh-postgres
+    databaseName: faleh_db
+    user: faleh_user
     plan: free

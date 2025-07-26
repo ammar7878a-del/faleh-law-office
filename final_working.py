@@ -30,50 +30,140 @@ login_manager.login_message = 'يرجى تسجيل الدخول للوصول ل�
 login_manager.login_message_category = 'info'
 app.config['SECRET_KEY'] = 'final-working-key'
 
-# إعدادات قاعدة البيانات - SQLite مع نسخ احتياطي محسن
-# تعطيل PostgreSQL مؤقتاً بسبب مشاكل التوافق
-DATABASE_URL = None  # os.environ.get('DATABASE_URL')
+# إعدادات قاعدة البيانات - استخدام قاعدة بيانات خارجية دائماً
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-if False:  # DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
-    # استخدام PostgreSQL للحفظ الدائم
-    try:
-        # إصلاح رابط PostgreSQL إذا لزم الأمر
-        if DATABASE_URL.startswith('postgres://'):
-            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+def setup_database():
+    """إعداد قاعدة البيانات مع فحص شامل"""
+    global DATABASE_URL
 
-        # إصلاح رابط PostgreSQL إذا لزم الأمر
-        if DATABASE_URL.startswith('postgres://'):
-            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    print("🔍 فحص إعدادات قاعدة البيانات...")
 
-        # إعدادات PostgreSQL مع psycopg2
-        app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,
-            'pool_recycle': 300,
-            'pool_timeout': 20,
-            'max_overflow': 0,
-            'connect_args': {
-                'sslmode': 'require'
+    if DATABASE_URL and ('postgresql' in DATABASE_URL or 'postgres' in DATABASE_URL):
+        # استخدام PostgreSQL للحفظ الدائم
+        try:
+            # إصلاح رابط PostgreSQL إذا لزم الأمر
+            if DATABASE_URL.startswith('postgres://'):
+                DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+                print("🔧 تم إصلاح رابط PostgreSQL")
+
+            # اختبار الاتصال أولاً
+            from sqlalchemy import create_engine, text
+            test_engine = create_engine(
+                DATABASE_URL,
+                pool_pre_ping=True,
+                pool_recycle=300,
+                pool_timeout=20,
+                max_overflow=0,
+                connect_args={'sslmode': 'require'}
+            )
+
+            # اختبار الاتصال
+            with test_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+
+            # إعدادات PostgreSQL مع psycopg2
+            app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+            app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+                'pool_pre_ping': True,
+                'pool_recycle': 300,
+                'pool_timeout': 20,
+                'max_overflow': 0,
+                'connect_args': {
+                    'sslmode': 'require'
+                }
             }
-        }
-        print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL مع psycopg2")
-        print(f"🔒 البيانات محفوظة بشكل دائم!")
 
-    except Exception as pg_error:
-        print(f"⚠️ خطأ في PostgreSQL: {pg_error}")
-        # التراجع إلى SQLite
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///final_working_v2.db'
-        print(f"⚠️ تم التراجع إلى SQLite")
+            print(f"🗄️ ✅ استخدام قاعدة بيانات خارجية: PostgreSQL")
+            print(f"🔒 البيانات محفوظة دائماً - لن تُحذف أبداً!")
+            print(f"🎉 مشكلة فقدان البيانات محلولة نهائياً!")
+            print(f"🌐 الخادم: {DATABASE_URL.split('@')[1].split('/')[0] if '@' in DATABASE_URL else 'غير محدد'}")
 
-else:
-    # استخدام SQLite مع نسخ احتياطي محسن
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///law_office_persistent.db'
-    print(f"🗄️ ✅ استخدام قاعدة بيانات محلية: SQLite")
-    print(f"💾 نظام نسخ احتياطي محسن مفعل")
-    print(f"🔄 النسخ الاحتياطي كل 30 دقيقة + عند كل تغيير")
-    print(f"📁 ملف قاعدة البيانات: law_office_persistent.db")
+            return True
+
+        except Exception as pg_error:
+            print(f"❌ خطأ في الاتصال بـ PostgreSQL: {pg_error}")
+            print(f"🔧 التحقق من:")
+            print(f"   - صحة رابط قاعدة البيانات")
+            print(f"   - كلمة المرور")
+            print(f"   - الاتصال بالإنترنت")
+            print(f"⚠️ التراجع إلى SQLite المؤقت...")
+
+            # التراجع إلى SQLite
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emergency_backup.db'
+            print(f"⚠️ تم التراجع إلى SQLite (emergency_backup.db)")
+            return False
+
+    else:
+        # تحذير: لا توجد قاعدة بيانات خارجية
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///law_office_temp.db'
+        print(f"🚨 تحذير: لا توجد قاعدة بيانات خارجية!")
+        print(f"⚠️ البيانات ستُحذف عند إعادة التشغيل!")
+        print(f"💡 لحل هذه المشكلة:")
+        print(f"   1. راجع ملف DATABASE_SETUP_GUIDE.md")
+        print(f"   2. أنشئ قاعدة بيانات مجانية على Supabase")
+        print(f"   3. أضف متغير DATABASE_URL في إعدادات الخادم")
+        print(f"🔗 رابط Supabase: https://supabase.com")
+        return False
+
+# تشغيل إعداد قاعدة البيانات
+database_setup_success = setup_database()
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+def get_database_status():
+    """الحصول على حالة قاعدة البيانات للعرض في الواجهة"""
+    status = {
+        'type': 'غير محدد',
+        'status': 'غير متصل',
+        'persistent': False,
+        'warning': None,
+        'server': 'غير محدد'
+    }
+
+    try:
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+
+        if 'postgresql' in db_uri:
+            status['type'] = 'PostgreSQL (خارجي)'
+            status['persistent'] = True
+            status['status'] = 'متصل ✅'
+
+            # استخراج معلومات الخادم
+            if '@' in db_uri:
+                server_part = db_uri.split('@')[1].split('/')[0]
+                status['server'] = server_part
+
+        elif 'sqlite' in db_uri:
+            status['type'] = 'SQLite (محلي)'
+            status['persistent'] = False
+            status['status'] = 'متصل ⚠️'
+            status['warning'] = 'البيانات ستُحذف عند إعادة التشغيل!'
+
+            # اسم ملف قاعدة البيانات
+            if '///' in db_uri:
+                db_file = db_uri.split('///')[-1]
+                status['server'] = f'ملف محلي: {db_file}'
+
+        # فحص الاتصال الفعلي
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text("SELECT 1"))
+            status['connection_test'] = 'نجح ✅'
+        except:
+            status['connection_test'] = 'فشل ❌'
+            status['status'] = 'خطأ في الاتصال'
+
+    except Exception as e:
+        status['status'] = f'خطأ: {str(e)}'
+
+    return status
+
+# إضافة دالة حالة قاعدة البيانات للـ templates
+@app.template_global()
+def get_db_status():
+    """إرجاع حالة قاعدة البيانات للاستخدام في templates"""
+    return get_database_status()
 
 # إعدادات رفع الملفات - للخادم السحابي
 # استخدام مجلد uploads في نفس مجلد التطبيق
@@ -293,8 +383,8 @@ def start_backup_scheduler():
     def backup_loop():
         while True:
             try:
-                # نسخ احتياطي كل 30 دقيقة
-                time.sleep(30 * 60)  # 30 دقيقة
+                # نسخ احتياطي كل 5 دقائق
+                time.sleep(5 * 60)  # 5 دقائق
                 with app.app_context():
                     auto_backup_database()
             except Exception as e:
@@ -9750,6 +9840,290 @@ def reports():
          monthly_revenue=monthly_revenue, recent_clients=recent_clients,
          active_cases_list=active_cases_list, pending_invoices_list=pending_invoices_list)
 
+@app.route('/database_status')
+@login_required
+@admin_required
+def database_status():
+    """صفحة حالة قاعدة البيانات"""
+    db_status = get_database_status()
+
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حالة قاعدة البيانات - نظام إدارة المكتب</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: none;
+            margin-bottom: 20px;
+        }
+        .status-success { border-left: 5px solid #28a745; }
+        .status-warning { border-left: 5px solid #ffc107; }
+        .status-danger { border-left: 5px solid #dc3545; }
+        .status-info { border-left: 5px solid #17a2b8; }
+
+        .status-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        .success-icon { color: #28a745; }
+        .warning-icon { color: #ffc107; }
+        .danger-icon { color: #dc3545; }
+        .info-icon { color: #17a2b8; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            {{ get_navbar_brand_global()|safe }}
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">الرئيسية</a>
+                <a class="nav-link" href="/office_settings">الإعدادات</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">
+                    <i class="fas fa-database me-2"></i>
+                    حالة قاعدة البيانات
+                </h1>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card status-card {% if db_status.persistent %}status-success{% else %}status-warning{% endif %}">
+                    <div class="card-body text-center">
+                        <div class="status-icon {% if db_status.persistent %}success-icon{% else %}warning-icon{% endif %}">
+                            {% if db_status.persistent %}
+                                <i class="fas fa-shield-alt"></i>
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% endif %}
+                        </div>
+                        <h4>نوع قاعدة البيانات</h4>
+                        <p class="lead">{{ db_status.type }}</p>
+                        <p class="text-muted">{{ db_status.server }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card status-card {% if 'متصل ✅' in db_status.status %}status-success{% else %}status-danger{% endif %}">
+                    <div class="card-body text-center">
+                        <div class="status-icon {% if 'متصل ✅' in db_status.status %}success-icon{% else %}danger-icon{% endif %}">
+                            {% if 'متصل ✅' in db_status.status %}
+                                <i class="fas fa-check-circle"></i>
+                            {% else %}
+                                <i class="fas fa-times-circle"></i>
+                            {% endif %}
+                        </div>
+                        <h4>حالة الاتصال</h4>
+                        <p class="lead">{{ db_status.status }}</p>
+                        {% if db_status.connection_test %}
+                            <small class="text-muted">اختبار الاتصال: {{ db_status.connection_test }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if not db_status.persistent %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-warning" role="alert">
+                    <h4 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        تحذير: البيانات غير محفوظة دائماً!
+                    </h4>
+                    <p>{{ db_status.warning }}</p>
+                    <hr>
+                    <h5>لحل هذه المشكلة:</h5>
+                    <ol>
+                        <li>أنشئ حساب مجاني على <a href="https://supabase.com" target="_blank">Supabase</a></li>
+                        <li>أنشئ مشروع جديد وقاعدة بيانات</li>
+                        <li>انسخ رابط قاعدة البيانات</li>
+                        <li>أضف متغير <code>DATABASE_URL</code> في إعدادات الخادم</li>
+                        <li>أعد تشغيل التطبيق</li>
+                    </ol>
+                    <a href="/migrate_data" class="btn btn-warning">
+                        <i class="fas fa-database me-2"></i>
+                        نقل البيانات إلى قاعدة خارجية
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="alert alert-success" role="alert">
+                    <h4 class="alert-heading">
+                        <i class="fas fa-check-circle me-2"></i>
+                        ممتاز! البيانات محفوظة بأمان
+                    </h4>
+                    <p>قاعدة البيانات الخارجية تعمل بشكل صحيح. البيانات محفوظة دائماً ولن تُحذف عند إعادة تشغيل الخادم.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-tools me-2"></i>أدوات قاعدة البيانات</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <a href="/test_database" class="btn btn-info w-100 mb-2">
+                                    <i class="fas fa-vial me-2"></i>
+                                    اختبار الاتصال
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/backup_database" class="btn btn-secondary w-100 mb-2">
+                                    <i class="fas fa-download me-2"></i>
+                                    نسخة احتياطية
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/office_settings" class="btn btn-primary w-100 mb-2">
+                                    <i class="fas fa-cog me-2"></i>
+                                    إعدادات المكتب
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+    ''', db_status=db_status)
+
+@app.route('/test_database')
+@login_required
+@admin_required
+def test_database():
+    """اختبار الاتصال بقاعدة البيانات"""
+    try:
+        # اختبار الاتصال
+        with db.engine.connect() as conn:
+            result = conn.execute(db.text("SELECT 1 as test"))
+            test_value = result.fetchone()[0]
+
+            if test_value == 1:
+                flash('✅ نجح اختبار الاتصال بقاعدة البيانات!', 'success')
+            else:
+                flash('❌ فشل اختبار قاعدة البيانات', 'danger')
+
+    except Exception as e:
+        flash(f'❌ خطأ في الاتصال: {str(e)}', 'danger')
+
+    return redirect(url_for('database_status'))
+
+@app.route('/backup_database')
+@login_required
+@admin_required
+def backup_database():
+    """إنشاء نسخة احتياطية من قاعدة البيانات"""
+    try:
+        # استدعاء دالة النسخ الاحتياطي الموجودة
+        auto_backup_database()
+        flash('✅ تم إنشاء النسخة الاحتياطية بنجاح!', 'success')
+    except Exception as e:
+        flash(f'❌ خطأ في إنشاء النسخة الاحتياطية: {str(e)}', 'danger')
+
+    return redirect(url_for('database_status'))
+
+@app.route('/migrate_data')
+@login_required
+@admin_required
+def migrate_data_page():
+    """صفحة نقل البيانات"""
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نقل البيانات - نظام إدارة المكتب</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            {{ get_navbar_brand_global()|safe }}
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h4><i class="fas fa-database me-2"></i>نقل البيانات إلى قاعدة بيانات خارجية</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <h5><i class="fas fa-info-circle me-2"></i>قبل البدء:</h5>
+                            <ol>
+                                <li>تأكد من إنشاء قاعدة بيانات خارجية (Supabase مثلاً)</li>
+                                <li>أضف متغير <code>DATABASE_URL</code> في إعدادات الخادم</li>
+                                <li>أعد تشغيل التطبيق</li>
+                                <li>تأكد من ظهور "PostgreSQL (خارجي)" في حالة قاعدة البيانات</li>
+                            </ol>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <h5><i class="fas fa-exclamation-triangle me-2"></i>تحذير:</h5>
+                            <p>هذه العملية ستنقل جميع البيانات من قاعدة البيانات المحلية إلى القاعدة الخارجية.</p>
+                            <p>تأكد من إنشاء نسخة احتياطية أولاً!</p>
+                        </div>
+
+                        <div class="text-center">
+                            <a href="/database_status" class="btn btn-secondary me-2">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                العودة لحالة قاعدة البيانات
+                            </a>
+                            <button class="btn btn-warning" onclick="startMigration()">
+                                <i class="fas fa-database me-2"></i>
+                                بدء نقل البيانات
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function startMigration() {
+        if (confirm('هل أنت متأكد من نقل البيانات؟ تأكد من إعداد قاعدة البيانات الخارجية أولاً.')) {
+            alert('ميزة نقل البيانات ستكون متاحة قريباً. يرجى اتباع الدليل المرفق لإعداد قاعدة البيانات الخارجية يدوياً.');
+        }
+    }
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+    ''')
+
 @app.route('/office_settings')
 @login_required
 @admin_required
@@ -9847,6 +10221,56 @@ def office_settings():
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
+        <!-- قسم حالة قاعدة البيانات -->
+        <div class="form-section">
+            <h4 class="section-title">
+                <i class="fas fa-database me-2"></i>حالة قاعدة البيانات
+            </h4>
+
+            {% set db_status = get_db_status() %}
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            {% if db_status.persistent %}
+                                <i class="fas fa-shield-alt text-success fa-2x"></i>
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle text-warning fa-2x"></i>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <h6 class="mb-1">{{ db_status.type }}</h6>
+                            <p class="mb-1 text-muted">{{ db_status.status }}</p>
+                            {% if not db_status.persistent %}
+                                <small class="text-warning">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    البيانات ستُحذف عند إعادة التشغيل!
+                                </small>
+                            {% else %}
+                                <small class="text-success">
+                                    <i class="fas fa-check-circle me-1"></i>
+                                    البيانات محفوظة دائماً
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/database_status" class="btn btn-outline-primary">
+                        <i class="fas fa-info-circle me-1"></i>
+                        تفاصيل أكثر
+                    </a>
+                </div>
+            </div>
+
+            {% if not db_status.persistent %}
+            <div class="alert alert-warning mt-3" role="alert">
+                <strong>تحذير:</strong> لحل مشكلة فقدان البيانات، يرجى إعداد قاعدة بيانات خارجية.
+                <a href="/database_status" class="alert-link">اضغط هنا للحصول على التعليمات</a>
+            </div>
+            {% endif %}
+        </div>
 
         <form method="POST" enctype="multipart/form-data">
             <!-- معلومات المكتب الأساسية -->
@@ -10260,6 +10684,13 @@ if __name__ == '__main__':
                     db.session.execute(db.text("ALTER TABLE user ADD COLUMN created_at DATETIME"))
                     db.session.commit()
                     print("تم إضافة أعمدة الأدوار بنجاح")
+                    # سجل الأداء بعد إضافة أعمدة الأدوار
+                    import logging
+                    import time
+                    logging.basicConfig(filename='performance.log', level=logging.INFO, format='%(asctime)s %(message)s', encoding='utf-8')
+                    logging.info("تم إضافة أعمدة الأدوار إلى جدول المستخدمين (user)")
+                    logging.info(f"⏱️ زمن إضافة أعمدة الأدوار: {time.strftime('%H:%M:%S')}")
+                    print(f"⏱️ زمن إضافة أعمدة الأدوار: {time.strftime('%H:%M:%S')}")
                 except Exception as alter_error:
                     print(f"خطأ في إضافة أعمدة الأدوار: {alter_error}")
                     db.session.rollback()

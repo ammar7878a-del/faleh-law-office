@@ -1,0 +1,18 @@
+# إصدارات مستقرة ومُختبرة - تحل مشكلة SQLAlchemy AssertionError
+
+# Flask Framework - إصدار مستقر
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+Werkzeug==2.3.7
+
+# قاعدة البيانات - إصدارات متوافقة
+SQLAlchemy==1.4.53
+psycopg2-binary==2.9.9
+
+# مكتبات مساعدة
+python-dateutil==2.8.2
+requests==2.31.0
+
+# خادم الإنتاج
+gunicorn==21.2.0

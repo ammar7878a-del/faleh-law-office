@@ -1,0 +1,20 @@
+# متطلبات محدثة لحل مشكلة psycopg2 مع Python 3.13
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Werkzeug==3.0.1
+SQLAlchemy==2.0.23
+python-dateutil==2.8.2
+gunicorn==21.2.0
+
+# حل مشكلة psycopg2 - جرب هذه الخيارات بالترتيب:
+# الخيار 1: الإصدار الأحدث
+psycopg2-binary==2.9.9
+
+# إذا لم يعمل الخيار 1، استبدله بالخيار 2:
+# psycopg2==2.9.9
+
+# إذا لم يعمل الخيار 2، استبدله بالخيار 3:
+# psycopg[binary]==3.1.13
+
+requests==2.31.0
