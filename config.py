@@ -29,17 +29,83 @@ class Config:
     
     @staticmethod
     def init_app(app):
-        # Check if external database is configured
+        # Enhanced database connection diagnostics
         database_url = os.environ.get('DATABASE_URL')
-        if not database_url or database_url.startswith('sqlite://'):
-            print("⚠️  تحذير: لا توجد قاعدة بيانات خارجية!")
-            print("📖 لحل هذه المشكلة، راجع ملف DATABASE_SETUP_GUIDE.md")
-            print("🔗 وقم بإعداد Supabase كما هو موضح في الدليل")
+        
+        if not database_url:
+            print("🚨 خطأ: متغير DATABASE_URL غير موجود!")
+            print("📋 الحلول المقترحة:")
+            print("   1. تأكد من إعداد DATABASE_URL في Render.com")
+            print("   2. راجع ملف DATABASE_SETUP_GUIDE.md")
+            print("   3. تحقق من إعدادات Supabase")
+            return
+            
+        if database_url.startswith('sqlite://'):
+            print("⚠️  تحذير: يتم استخدام SQLite المحلي")
             print("💾 البيانات ستُحذف عند إعادة التشغيل!")
-        else:
-            print("✅ تم الاتصال بقاعدة البيانات الخارجية بنجاح")
-            print(f"🔗 قاعدة البيانات: {database_url[:50]}...")
-        pass
+            print("🔗 لإعداد قاعدة بيانات خارجية، راجع DATABASE_SETUP_GUIDE.md")
+            return
+            
+        # Test PostgreSQL connection
+        try:
+            import psycopg2
+            # Parse connection string
+            if 'postgresql://' in database_url or 'postgres://' in database_url:
+                # Fix postgres:// to postgresql://
+                if database_url.startswith('postgres://'):
+                    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+                    
+                print("🔍 محاولة الاتصال بقاعدة البيانات الخارجية...")
+                
+                # Extract host for validation
+                if '@' in database_url:
+                    host_part = database_url.split('@')[1].split(':')[0]
+                    print(f"🌐 المضيف: {host_part}")
+                    
+                    # Validate host format
+                    if '.supabase.co' in host_part:
+                        if 'pooler' in host_part:
+                            print("📡 نوع الاتصال: Connection Pooler")
+                        else:
+                            print("📡 نوع الاتصال: Direct Connection")
+                            
+                        # Check for common host name issues
+                        if host_part.count('-') < 3:
+                            print("⚠️  تحذير: اسم المضيف قد يكون غير مكتمل")
+                            print("💡 تأكد من نسخ رابط الاتصال كاملاً من Supabase")
+                            
+                # Test actual connection
+                conn = psycopg2.connect(database_url)
+                conn.close()
+                print("✅ تم الاتصال بقاعدة البيانات الخارجية بنجاح!")
+                print("🎉 جميع البيانات محفوظة ومؤمنة")
+                
+        except ImportError:
+            print("⚠️  مكتبة psycopg2 غير مثبتة")
+            print("📦 قم بتثبيتها: pip install psycopg2-binary")
+        except Exception as e:
+            error_msg = str(e)
+            print("❌ فشل الاتصال بقاعدة البيانات الخارجية")
+            print(f"🔍 تفاصيل الخطأ: {error_msg}")
+            
+            # Specific error handling
+            if 'could not translate host name' in error_msg:
+                print("\n🚨 مشكلة في اسم المضيف:")
+                print("   1. تحقق من رابط DATABASE_URL في Render.com")
+                print("   2. انسخ رابط جديد من Supabase Settings > Database")
+                print("   3. تأكد من اكتمال الرابط (لا توجد أحرف مقطوعة)")
+                print("   4. جرب استخدام Direct Connection بدلاً من Pooler")
+            elif 'authentication failed' in error_msg:
+                print("\n🔐 مشكلة في المصادقة:")
+                print("   1. تحقق من كلمة المرور في رابط الاتصال")
+                print("   2. أعد إنشاء كلمة مرور جديدة في Supabase")
+            elif 'timeout' in error_msg:
+                print("\n⏱️  مشكلة في المهلة الزمنية:")
+                print("   1. تحقق من اتصال الشبكة")
+                print("   2. جرب منطقة Supabase مختلفة")
+                
+            print("\n🔄 التراجع إلى SQLite المؤقت...")
+            print("💾 البيانات ستُحذف عند إعادة التشغيل!")
 
 class DevelopmentConfig(Config):
     DEBUG = True
