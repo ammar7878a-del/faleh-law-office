@@ -5,9 +5,7 @@ import sys
 
 from flask import Flask, render_template_string, request, redirect, url_for, flash, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
-# تعطيل مؤقت لنظام تسجيل الدخول
-# from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask_login import UserMixin
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -19,6 +17,22 @@ import time
 import json
 
 app = Flask(__name__)
+
+# تكوين مجلد الرفع
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max-limit
+
+# إنشاء مجلدات الرفع إذا لم تكن موجودة
+for folder in ['documents', 'logos', 'avatars']:
+    folder_path = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+# خدمة الملفات المرفوعة
+@app.route('/uploads/<path:filename>')
+@login_required
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # نظام تسجيل الدخول الحقيقي
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -176,6 +190,8 @@ UPLOAD_FOLDER = os.path.join(CURRENT_DIR, 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# تم نقل تكوين خدمة الملفات الثابتة إلى الأعلى
 
 # إنشاء مجلد الرفع إذا لم يكن موجوداً
 if not os.path.exists(UPLOAD_FOLDER):
@@ -839,6 +855,27 @@ def simple_file(filename):
 
         # البحث باستخدام الاسم الأصلي والمُفكك
         search_names = [filename, decoded_filename]
+        
+        # إضافة البحث المباشر في مجلد uploads للملفات المُرمزة
+        if os.path.exists(upload_folder):
+            try:
+                available_files = os.listdir(upload_folder)
+                print(f"📁 Available files in uploads: {available_files[:5]}...")  # أول 5 ملفات
+                
+                # البحث عن تطابق مباشر مع الملفات الموجودة
+                for available_file in available_files:
+                    # مقارنة مع الاسم المُفكك
+                    if available_file == decoded_filename:
+                        if available_file not in search_names:
+                            search_names.insert(0, available_file)  # إضافة في المقدمة للأولوية
+                            print(f"✅ تطابق مباشر مع الملف: {available_file}")
+                    # مقارنة مع الاسم الأصلي
+                    elif available_file == filename:
+                        if available_file not in search_names:
+                            search_names.insert(0, available_file)
+                            print(f"✅ تطابق مباشر مع الملف الأصلي: {available_file}")
+            except Exception as e:
+                print(f"⚠️ خطأ في قراءة مجلد uploads: {e}")
 
         # إضافة البحث الذكي للملفات المشابهة (نفس النص، timestamps مختلفة)
         if '_' in decoded_filename:
@@ -1039,11 +1076,17 @@ def simple_file(filename):
 
             # إضافة headers لضمان العرض الصحيح
             if disposition == 'inline':
-                response.headers['Content-Disposition'] = f'inline; filename="{filename}"'
+                # ترميز اسم الملف بشكل صحيح للـ HTTP headers
+                import urllib.parse
+                encoded_filename = urllib.parse.quote(filename.encode('utf-8'))
+                response.headers['Content-Disposition'] = f'inline; filename*=UTF-8\'\'\'{encoded_filename}'
                 response.headers['Cache-Control'] = 'no-cache'
                 response.headers['X-Content-Type-Options'] = 'nosniff'
             else:
-                response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+                # ترميز اسم الملف بشكل صحيح للـ HTTP headers
+                import urllib.parse
+                encoded_filename = urllib.parse.quote(filename.encode('utf-8'))
+                response.headers['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'\'{encoded_filename}'
 
             return response
         else:
@@ -3701,46 +3744,102 @@ def view_case(case_id):
                     <h6 class="text-primary">📋 المستندات المرتبطة بهذه القضية</h6>
                     <div class="row">
                         {% for document in case_documents %}
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <div class="card border-primary">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h6 class="card-title">
-                                                {% if document.document_type == 'national_id' %}🆔 الهوية الوطنية
-                                                {% elif document.document_type == 'power_of_attorney' %}📜 توكيل
-                                                {% elif document.document_type == 'contract' %}📋 عقد
-                                                {% elif document.document_type == 'court_document' %}⚖️ مستند محكمة
-                                                {% elif document.document_type == 'evidence' %}🔍 دليل
-                                                {% else %}📄 مستند أخر{% endif %}
-                                            </h6>
-                                            <p class="card-text small">{{ document.description or 'بدون وصف' }}</p>
-                                            <small class="text-muted">{{ document.created_at.strftime('%Y-%m-%d') }}</small>
-                                        </div>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">⚙️</button>
-                                            <ul class="dropdown-menu">
-                                                {% if document.filename %}
-                                                    <li><a class="dropdown-item" href="{{ url_for('simple_file', filename=document.filename) }}" target="_blank">👁️ معاينة</a></li>
-                                                    <li><a class="dropdown-item" href="{{ url_for('download_file', filename=document.filename) }}">📥 تحميل</a></li>
-                                                {% endif %}
-                                                <li><a class="dropdown-item" href="/unlink_document/{{ document.id }}" onclick="return confirm('إلغاء ربط المستند بالقضية؟')">🔗 إلغاء الربط</a></li>
-                                                <li><a class="dropdown-item text-danger" href="/delete_document/{{ document.id }}" onclick="return confirm('حذف المستند نهائياً؟')">🗑️ حذف</a></li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    {% if document.filename %}
-                                        <div class="mt-2">
-                                            {% if document.is_image %}
-                                                <img src="{{ url_for('simple_file', filename=document.filename) }}" class="img-thumbnail" style="max-height: 100px;">
-                                            {% elif document.is_pdf %}
-                                                <span class="badge bg-danger">PDF</span>
-                                            {% else %}
-                                                <span class="badge bg-info">{{ document.file_extension | safe_upper }}</span>
-                                            {% endif %}
-                                            <small class="text-muted d-block">{{ document.file_size_mb }} MB</small>
-                                        </div>
+                                    <h6>
+                                        {% if document.document_type == 'national_id' %}🆔 الهوية الوطنية
+                                        {% elif document.document_type == 'power_of_attorney' %}📜 توكيل
+                                        {% elif document.document_type == 'contract' %}📋 عقد
+                                        {% elif document.document_type == 'court_document' %}⚖️ مستند محكمة
+                                        {% elif document.document_type == 'evidence' %}🔍 دليل
+                                        {% else %}📄 مستند أخر{% endif %}
+                                    </h6>
+
+                                    {% if document.description %}
+                                        <p><strong>الوصف:</strong> {{ document.description }}</p>
                                     {% endif %}
+
+                                    {% if document.filename %}
+                                        <div class="mb-2">
+                                            <strong>الملف المرفق:</strong>
+                                            <br>
+                                            <span class="badge bg-info">{{ document.original_filename or document.filename }}</span>
+                                            <span class="badge bg-secondary">{{ document.file_size_mb }} MB</span>
+                                        </div>
+
+                                        {% if document.is_image %}
+                                            <div class="mb-2 text-center">
+                                                <img src="{{ url_for('simple_file', filename=document.filename) }}"
+                                                     class="img-thumbnail"
+                                                     style="max-width: 200px; max-height: 150px; cursor: pointer; border: 2px solid #007bff;"
+                                                     alt="معاينة {{ document.original_filename or document.filename }}"
+                                                     onclick="showQuickPreview('{{ document.id }}', '{{ document.filename }}', '{{ url_for('simple_file', filename=document.filename) }}')"
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                                     title="انقر للمعاينة الكاملة">
+                                                <div style="display: none; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
+                                                    <i class="fas fa-image text-muted" style="font-size: 2em;"></i>
+                                                    <br><small class="text-muted">لا يمكن عرض الصورة</small>
+                                                </div>
+                                            </div>
+                                        {% elif document.is_pdf %}
+                                            <div class="mb-2 text-center">
+                                                <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #dc3545; border-radius: 8px; padding: 10px; background: #fff;"
+                                                     onclick="showQuickPreview('{{ document.id }}', '{{ document.filename }}', '{{ url_for('simple_file', filename=document.filename) }}')"
+                                                     title="انقر للمعاينة الكاملة">
+                                                    <i class="fas fa-file-pdf text-danger" style="font-size: 3em;"></i>
+                                                    <div style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                        👁️
+                                                    </div>
+                                                    <br><small class="text-muted">ملف PDF</small>
+                                                </div>
+                                            </div>
+                                        {% elif document.is_word %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-word text-primary" style="font-size: 2em;"></i>
+                                                <span class="ms-2">مستند Word</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% elif document.is_excel %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-excel text-success" style="font-size: 2em;"></i>
+                                                <span class="ms-2">جدول Excel</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% elif document.is_powerpoint %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-powerpoint text-warning" style="font-size: 2em;"></i>
+                                                <span class="ms-2">عرض PowerPoint</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% else %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file text-secondary" style="font-size: 2em;"></i>
+                                                <span class="ms-2">ملف مستند</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% endif %}
+
+                                        <div class="btn-group" role="group">
+                                            <button onclick="window.open('{{ url_for('simple_file', filename=document.filename) }}', '_blank')" class="btn btn-sm btn-outline-primary" title="معاينة في نافذة جديدة">
+                                                🔗 معاينة
+                                            </button>
+                                            <a href="{{ url_for('download_file', filename=document.filename) }}" class="btn btn-sm btn-success">
+                                                📥 تحميل
+                                            </a>
+                                            <a href="/unlink_document/{{ document.id }}" class="btn btn-sm btn-warning" onclick="return confirm('إلغاء ربط المستند بالقضية؟')" title="إلغاء الربط">
+                                                🔗 إلغاء الربط
+                                            </a>
+                                            <a href="/delete_document/{{ document.id }}" class="btn btn-sm btn-danger" onclick="return confirm('حذف المستند نهائياً؟')" title="حذف">
+                                                🗑️ حذف
+                                            </a>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted">لا يوجد ملف مرفق</p>
+                                    {% endif %}
+
+                                    <hr>
+                                    <small class="text-muted">تاريخ الإضافة: {{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
                                 </div>
                             </div>
                         </div>
@@ -3755,43 +3854,93 @@ def view_case(case_id):
                     <h6 class="text-secondary">📂 مستندات العميل العامة (يمكن ربطها بالقضية)</h6>
                     <div class="row">
                         {% for document in client_documents %}
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <div class="card border-secondary">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h6 class="card-title">
-                                                {% if document.document_type == 'national_id' %}🆔 الهوية الوطنية
-                                                {% elif document.document_type == 'power_of_attorney' %}📜 توكيل
-                                                {% elif document.document_type == 'contract' %}📋 عقد
-                                                {% else %}📄 مستند أخر{% endif %}
-                                            </h6>
-                                            <p class="card-text small">{{ document.description or 'بدون وصف' }}</p>
-                                            <small class="text-muted">{{ document.created_at.strftime('%Y-%m-%d') }}</small>
-                                        </div>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">⚙️</button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item text-primary" href="/link_document/{{ document.id }}/{{ case.id }}" onclick="return confirm('ربط المستند بهذه القضية؟')">🔗 ربط بالقضية</a></li>
-                                                {% if document.filename %}
-                                                    <li><a class="dropdown-item" href="/documents/{{ document.id }}/view" target="_blank">👁️ معاينة</a></li>
-                                                    <li><a class="dropdown-item" href="/documents/{{ document.id }}/download">📥 تحميل</a></li>
-                                                {% endif %}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    {% if document.filename %}
-                                        <div class="mt-2">
-                                            {% if document.is_image %}
-                                                <img src="{{ url_for('simple_file', filename=document.filename) }}" class="img-thumbnail" style="max-height: 100px;">
-                                            {% elif document.is_pdf %}
-                                                <span class="badge bg-danger">PDF</span>
-                                            {% else %}
-                                                <span class="badge bg-info">{{ document.file_extension | safe_upper }}</span>
-                                            {% endif %}
-                                            <small class="text-muted d-block">{{ document.file_size_mb }} MB</small>
-                                        </div>
+                                    <h6>
+                                        {% if document.document_type == 'identity' %}🆔 الهوية الشخصية
+                                        {% elif document.document_type == 'power_of_attorney' %}📋 الوكالة
+                                        {% elif document.document_type == 'contract' %}📄 العقد
+                                        {% else %}📎 مستند آخر{% endif %}
+                                    </h6>
+
+                                    {% if document.description %}
+                                        <p><strong>الوصف:</strong> {{ document.description }}</p>
                                     {% endif %}
+
+                                    {% if document.filename %}
+                                        <div class="mb-2">
+                                            <strong>الملف المرفق:</strong>
+                                            <br>
+                                            <span class="badge bg-info">{{ document.original_filename or document.filename }}</span>
+                                            <span class="badge bg-secondary">{{ document.file_size_mb }} MB</span>
+                                        </div>
+
+                                        {% if document.is_image %}
+                                            <div class="mb-2 text-center">
+                                                <img src="/documents/{{ document.id }}/view"
+                                                     class="img-thumbnail"
+                                                     style="max-width: 200px; max-height: 150px; cursor: pointer; border: 2px solid #007bff;"
+                                                     alt="معاينة {{ document.original_filename or document.filename }}"
+                                                     onclick="window.open('/documents/{{ document.id }}/view', '_blank')"
+                                                     title="انقر للمعاينة الكاملة">
+                                            </div>
+                                        {% elif document.is_pdf %}
+                                            <div class="mb-2 text-center">
+                                                <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #dc3545; border-radius: 8px; padding: 10px; background: #fff;"
+                                                     onclick="window.open('/documents/{{ document.id }}/view', '_blank')"
+                                                     title="انقر للمعاينة الكاملة">
+                                                    <i class="fas fa-file-pdf text-danger" style="font-size: 3em;"></i>
+                                                    <div style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                        👁️
+                                                    </div>
+                                                    <br><small class="text-muted">ملف PDF</small>
+                                                </div>
+                                            </div>
+                                        {% elif document.is_word %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-word text-primary" style="font-size: 2em;"></i>
+                                                <span class="ms-2">مستند Word</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% elif document.is_excel %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-excel text-success" style="font-size: 2em;"></i>
+                                                <span class="ms-2">جدول Excel</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% elif document.is_powerpoint %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file-powerpoint text-warning" style="font-size: 2em;"></i>
+                                                <span class="ms-2">عرض PowerPoint</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% else %}
+                                            <div class="mb-2">
+                                                <i class="fas fa-file text-secondary" style="font-size: 2em;"></i>
+                                                <span class="ms-2">ملف مستند</span>
+                                                <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                            </div>
+                                        {% endif %}
+
+                                        <div class="btn-group" role="group">
+                                            <a href="/link_document/{{ document.id }}/{{ case.id }}" class="btn btn-sm btn-primary" onclick="return confirm('ربط المستند بهذه القضية؟')" title="ربط بالقضية">
+                                                🔗 ربط بالقضية
+                                            </a>
+
+                                            <button onclick="window.open('/documents/{{ document.id }}/view', '_blank')" class="btn btn-sm btn-outline-secondary" title="معاينة في نافذة جديدة">
+                                                🔗 معاينة
+                                            </button>
+                                            <a href="/documents/{{ document.id }}/download" class="btn btn-sm btn-success">
+                                                📥 تحميل
+                                            </a>
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted">لا يوجد ملف مرفق</p>
+                                    {% endif %}
+
+                                    <hr>
+                                    <small class="text-muted">تاريخ الإضافة: {{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
                                 </div>
                             </div>
                         </div>
@@ -3811,8 +3960,222 @@ def view_case(case_id):
         </div>
     </div>
 
+    <!-- Modal للمعاينة السريعة -->
+    <div class="modal fade" id="quickPreviewModal" tabindex="-1" aria-labelledby="quickPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickPreviewModalLabel">معاينة سريعة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center" id="previewContent">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">جاري التحميل...</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <a href="#" id="downloadBtn" class="btn btn-success">📥 تحميل</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS for dropdown -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+    function showQuickPreview(docId, filename, directUrl = null) {
+        try {
+            console.log('showQuickPreview called with:', docId, filename);
+
+            // التحقق من وجود Bootstrap - إذا لم يكن متاحاً، استخدم modal بسيط
+            if (typeof bootstrap === 'undefined') {
+                console.log('Bootstrap غير متاح، استخدام modal بسيط');
+                window.open('/documents/' + docId + '/view', '_blank');
+                return;
+            }
+
+            // التحقق من وجود المودال
+            const modalElement = document.getElementById('quickPreviewModal');
+            if (!modalElement) {
+                console.error('خطأ: المودال غير موجود');
+                // فتح في نافذة جديدة كبديل
+                if (window.location.pathname.includes('/view_case/')) {
+                    window.open('/simple_file/' + filename.split('/').pop(), '_blank');
+                } else {
+                    window.open('/documents/' + docId + '/view', '_blank');
+                }
+                return;
+            }
+
+            // إظهار المودال
+            const modal = new bootstrap.Modal(modalElement);
+            const previewContent = document.getElementById('previewContent');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const modalTitle = document.getElementById('quickPreviewModalLabel');
+
+            // تحديث العنوان
+            modalTitle.textContent = 'معاينة: ' + filename;
+
+            // تحديث رابط التحميل - استخدام route مختلف للمستندات المرتبطة بالقضية
+            if (window.location.pathname.includes('/view_case/')) {
+                downloadBtn.href = '/download_file/' + filename.split('/').pop();
+            } else {
+                downloadBtn.href = '/documents/' + docId + '/download';
+            }
+
+            // إظهار loading
+            previewContent.innerHTML = `
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+            `;
+
+            modal.show();
+
+            // تحديد نوع الملف من الامتداد
+            const extension = filename.split('.').pop().toLowerCase();
+
+        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension)) {
+            // للصور - استخدام route المعاينة المناسب
+            setTimeout(() => {
+                let imageUrl;
+                if (directUrl) {
+                    imageUrl = directUrl;
+                } else if (window.location.pathname.includes('/view_case/')) {
+                    imageUrl = '/simple_file/' + filename.split('/').pop();
+                } else {
+                    imageUrl = '/documents/' + docId + '/view';
+                }
+                
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <div class="alert alert-info mb-3" id="loadingAlert">
+                            <i class="fas fa-info-circle"></i> جاري تحميل الصورة...
+                        </div>
+                        <img src="${imageUrl}"
+                             class="img-fluid"
+                             style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
+                             alt="${filename}"
+                             onload="document.getElementById('loadingAlert').style.display='none'; console.log('Image loaded successfully');"
+                             onerror="console.error('Image failed to load'); this.style.display='none'; document.getElementById('errorAlert').style.display='block';">
+                        <div class="alert alert-warning" id="errorAlert" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            لا يمكن عرض الصورة.
+                            <a href="${downloadBtn.href}" class="btn btn-sm btn-primary ms-2">
+                                <i class="fas fa-download"></i> تحميل الملف
+                            </a>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">اسم الملف: ${filename}</small>
+                        </div>
+                    </div>
+                `;
+            }, 500);
+        } else if (extension === 'pdf') {
+            // لملفات PDF
+            setTimeout(() => {
+                let pdfUrl;
+                if (directUrl) {
+                    pdfUrl = directUrl;
+                } else if (window.location.pathname.includes('/view_case/')) {
+                    pdfUrl = '/simple_file/' + filename.split('/').pop();
+                } else {
+                    pdfUrl = '/documents/' + docId + '/view';
+                }
+                
+                previewContent.innerHTML = `
+                    <div class="text-center">
+                        <div class="alert alert-info mb-3" id="pdfLoadingAlert">
+                            <i class="fas fa-info-circle"></i> جاري تحميل ملف PDF...
+                        </div>
+                        <iframe src="${pdfUrl}"
+                                width="100%"
+                                height="400px"
+                                style="border: 1px solid #ddd; border-radius: 5px;"
+                                onload="document.getElementById('pdfLoadingAlert').style.display='none'; console.log('PDF loaded successfully');"
+                                onerror="console.error('PDF failed to load'); document.getElementById('pdfErrorAlert').style.display='block';">
+                            <p>متصفحك لا يدعم عرض ملفات PDF.
+                               <a href="${downloadBtn.href}">انقر هنا لتحميل الملف</a>
+                            </p>
+                        </iframe>
+                        <div class="alert alert-warning" id="pdfErrorAlert" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            لا يمكن عرض ملف PDF في المتصفح.
+                            <a href="${downloadBtn.href}" class="btn btn-sm btn-primary ms-2">
+                                <i class="fas fa-download"></i> تحميل الملف
+                            </a>
+                        </div>
+                        <div class="mt-2">
+                            <a href="${pdfUrl}" class="btn btn-primary btn-sm" target="_blank">
+                                <i class="fas fa-external-link-alt"></i> فتح في نافذة جديدة
+                            </a>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">اسم الملف: ${filename}</small>
+                        </div>
+                    </div>
+                `;
+            }, 500);
+        } else {
+            // للملفات الأخرى
+            setTimeout(() => {
+                let fileIcon = 'fas fa-file-alt';
+                let fileType = extension.toUpperCase();
+                
+                // تحديد أيقونة مناسبة حسب نوع الملف
+                if (['doc', 'docx'].includes(extension)) {
+                    fileIcon = 'fas fa-file-word';
+                    fileType = 'مستند Word';
+                } else if (['xls', 'xlsx'].includes(extension)) {
+                    fileIcon = 'fas fa-file-excel';
+                    fileType = 'جدول Excel';
+                } else if (['ppt', 'pptx'].includes(extension)) {
+                    fileIcon = 'fas fa-file-powerpoint';
+                    fileType = 'عرض PowerPoint';
+                } else if (['txt'].includes(extension)) {
+                    fileIcon = 'fas fa-file-alt';
+                    fileType = 'ملف نصي';
+                }
+                
+                previewContent.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="${fileIcon} fa-3x mb-3 text-primary"></i>
+                        <h5>معاينة غير متاحة</h5>
+                        <p>لا يمكن معاينة هذا النوع من الملفات في المتصفح</p>
+                        <p><strong>اسم الملف:</strong> ${filename}</p>
+                        <p><strong>نوع الملف:</strong> ${fileType}</p>
+                        <div class="mt-3">
+                            <a href="${downloadBtn.href}" class="btn btn-primary me-2">
+                                <i class="fas fa-download me-2"></i>تحميل الملف
+                            </a>
+                            <button onclick="window.open('${window.location.pathname.includes('/view_case/') ? '/simple_file/' + filename.split('/').pop() : '/documents/' + docId + '/view'}', '_blank')" class="btn btn-outline-primary">
+                                <i class="fas fa-external-link-alt me-2"></i>فتح في نافذة جديدة
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }, 300);
+        }
+        } catch (error) {
+            console.error('خطأ في showQuickPreview:', error);
+            // فتح في نافذة جديدة كبديل في حالة الخطأ
+            if (window.location.pathname.includes('/view_case/')) {
+                window.open('/simple_file/' + filename.split('/').pop(), '_blank');
+            } else {
+                window.open('/documents/' + docId + '/view', '_blank');
+            }
+        }
+    }
+    
+    // دالة مساعدة للتحقق من تحميل الصفحة
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('صفحة مستندات القضية تم تحميلها بنجاح');
+        console.log('Bootstrap متاح:', typeof bootstrap !== 'undefined');
+        console.log('Modal موجود:', document.getElementById('quickPreviewModal') !== null);
+    });
+    </script>
 </body>
 </html>
     ''', case=case, case_appointments=case_appointments, case_invoices=case_invoices,
@@ -4329,7 +4692,7 @@ def client_documents(client_id):
                                                  class="img-thumbnail"
                                                  style="max-width: 200px; max-height: 150px; cursor: pointer; border: 2px solid #007bff;"
                                                  alt="معاينة {{ doc.original_filename }}"
-                                                 onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
                                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                                  title="انقر للمعاينة الكاملة">
                                             <div style="display: none; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
@@ -4340,7 +4703,7 @@ def client_documents(client_id):
                                     {% elif doc.is_pdf %}
                                         <div class="mb-2 text-center">
                                             <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #dc3545; border-radius: 8px; padding: 10px; background: #fff;"
-                                                 onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
                                                  title="انقر للمعاينة الكاملة">
                                                 <i class="fas fa-file-pdf text-danger" style="font-size: 3em;"></i>
                                                 <div style="position: absolute; top: 5px; right: 5px; background: rgba(220, 53, 69, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
@@ -4350,34 +4713,63 @@ def client_documents(client_id):
                                             </div>
                                         </div>
                                     {% elif doc.is_word %}
-                                        <div class="mb-2">
-                                            <i class="fas fa-file-word text-primary" style="font-size: 2em;"></i>
-                                            <span class="ms-2">مستند Word</span>
-                                            <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #2b579a; border-radius: 8px; padding: 10px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة"
+                                                 class="thumbnail-preview">
+                                                <i class="fas fa-file-word text-primary" style="font-size: 3em;"></i>
+                                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(43, 87, 154, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">مستند Word</small>
+                                            </div>
                                         </div>
                                     {% elif doc.is_excel %}
-                                        <div class="mb-2">
-                                            <i class="fas fa-file-excel text-success" style="font-size: 2em;"></i>
-                                            <span class="ms-2">جدول Excel</span>
-                                            <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #217346; border-radius: 8px; padding: 10px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة"
+                                                 class="thumbnail-preview">
+                                                <i class="fas fa-file-excel text-success" style="font-size: 3em;"></i>
+                                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(33, 115, 70, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">جدول Excel</small>
+                                            </div>
                                         </div>
                                     {% elif doc.is_powerpoint %}
-                                        <div class="mb-2">
-                                            <i class="fas fa-file-powerpoint text-warning" style="font-size: 2em;"></i>
-                                            <span class="ms-2">عرض PowerPoint</span>
-                                            <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #d24726; border-radius: 8px; padding: 10px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة"
+                                                 class="thumbnail-preview">
+                                                <i class="fas fa-file-powerpoint text-warning" style="font-size: 3em;"></i>
+                                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(210, 71, 38, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">عرض PowerPoint</small>
+                                            </div>
                                         </div>
                                     {% else %}
-                                        <div class="mb-2">
-                                            <i class="fas fa-file text-secondary" style="font-size: 2em;"></i>
-                                            <span class="ms-2">ملف مستند</span>
-                                            <small class="text-muted d-block">سيتم تحميل الملف عند الضغط على "عرض"</small>
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #6c757d; border-radius: 8px; padding: 10px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة"
+                                                 class="thumbnail-preview">
+                                                <i class="fas fa-file text-secondary" style="font-size: 3em;"></i>
+                                                <div style="position: absolute; top: 5px; right: 5px; background: rgba(108, 117, 125, 0.8); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">ملف مستند</small>
+                                            </div>
                                         </div>
                                     {% endif %}
 
                                     <div class="btn-group" role="group">
                                         {% if doc.filename %}
-                                            <button onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')" class="btn btn-sm btn-primary" title="معاينة سريعة">
+                                            <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                    class="btn btn-sm btn-primary" title="معاينة سريعة">
                                                 👁️ معاينة
                                             </button>
                                             <button onclick="window.open('/documents/{{ doc.id }}/view', '_blank')" class="btn btn-sm btn-outline-primary" title="معاينة في نافذة جديدة" style="display: none;" id="fallback-{{ doc.id }}">
@@ -4477,14 +4869,14 @@ def client_documents(client_id):
             const extension = filename.split('.').pop().toLowerCase();
 
         if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-            // للصور - استخدام route التحميل مباشرة (حل مؤقت)
+            // للصور - استخدام route المعاينة
             setTimeout(() => {
                 previewContent.innerHTML = `
                     <div class="text-center">
                         <div class="alert alert-info mb-3">
                             <i class="fas fa-info-circle"></i> جاري تحميل الصورة...
                         </div>
-                        <img src="/documents/${docId}/download"
+                        <img src="/documents/${docId}/view"
                              class="img-fluid"
                              style="max-height: 400px; max-width: 100%; border: 1px solid #ddd; border-radius: 5px;"
                              alt="${filename}"
@@ -4508,7 +4900,7 @@ def client_documents(client_id):
             setTimeout(() => {
                 previewContent.innerHTML = `
                     <div class="text-center">
-                        <iframe src="/documents/${docId}/download"
+                        <iframe src="/documents/${docId}/view"
                                 width="100%"
                                 height="400px"
                                 style="border: 1px solid #ddd; border-radius: 5px;"
@@ -4519,7 +4911,7 @@ def client_documents(client_id):
                             </p>
                         </iframe>
                         <div class="mt-2">
-                            <a href="/documents/${docId}/download" class="btn btn-primary btn-sm" target="_blank">
+                            <a href="/documents/${docId}/view" class="btn btn-primary btn-sm" target="_blank">
                                 <i class="fas fa-external-link-alt"></i> فتح في نافذة جديدة
                             </a>
                         </div>
@@ -5605,27 +5997,90 @@ def edit_client(client_id):
                                 {% if doc.filename %}
                                     <div class="mb-2">
                                         <span class="badge bg-info">{{ doc.original_filename }}</span>
-                                        {% if doc.is_image %}
-                                            <div class="mt-1 text-center">
-                                                <img src="/documents/{{ doc.id }}/view"
-                                                     class="img-thumbnail"
-                                                     style="max-width: 120px; max-height: 90px; cursor: pointer; border: 2px solid #007bff;"
-                                                     alt="معاينة {{ doc.original_filename }}"
-                                                     onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')"
-                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
-                                                     title="انقر للمعاينة الكاملة">
-                                                <div style="display: none; padding: 5px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
-                                                    <i class="fas fa-image text-muted"></i>
-                                                    <br><small class="text-muted">لا يمكن عرض الصورة</small>
-                                                </div>
-                                            </div>
-                                        {% endif %}
+                                        <span class="badge bg-secondary">{{ doc.file_size_mb }} MB</span>
                                     </div>
+
+                                    {% if doc.is_image %}
+                                        <div class="mb-2 text-center">
+                                            <img src="/documents/{{ doc.id }}/view"
+                                                 class="img-thumbnail"
+                                                 style="max-width: 120px; max-height: 90px; cursor: pointer; border: 2px solid #007bff;"
+                                                 alt="معاينة {{ doc.original_filename }}"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                                                 title="انقر للمعاينة الكاملة">
+                                            <div style="display: none; padding: 5px; background: #f8f9fa; border-radius: 4px; border: 1px dashed #ccc;">
+                                                <i class="fas fa-image text-muted"></i>
+                                                <br><small class="text-muted">لا يمكن عرض الصورة</small>
+                                            </div>
+                                        </div>
+                                    {% elif doc.is_pdf %}
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #dc3545; border-radius: 8px; padding: 8px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file-pdf text-danger" style="font-size: 2.5em;"></i>
+                                                <div style="position: absolute; top: 3px; right: 3px; background: rgba(220, 53, 69, 0.8); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">ملف PDF</small>
+                                            </div>
+                                        </div>
+                                    {% elif doc.is_word %}
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #2b579a; border-radius: 8px; padding: 8px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file-word text-primary" style="font-size: 2.5em;"></i>
+                                                <div style="position: absolute; top: 3px; right: 3px; background: rgba(43, 87, 154, 0.8); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">مستند Word</small>
+                                            </div>
+                                        </div>
+                                    {% elif doc.is_excel %}
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #217346; border-radius: 8px; padding: 8px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file-excel text-success" style="font-size: 2.5em;"></i>
+                                                <div style="position: absolute; top: 3px; right: 3px; background: rgba(33, 115, 70, 0.8); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">جدول Excel</small>
+                                            </div>
+                                        </div>
+                                    {% elif doc.is_powerpoint %}
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #d24726; border-radius: 8px; padding: 8px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file-powerpoint text-warning" style="font-size: 2.5em;"></i>
+                                                <div style="position: absolute; top: 3px; right: 3px; background: rgba(210, 71, 38, 0.8); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">عرض PowerPoint</small>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="mb-2 text-center">
+                                            <div style="position: relative; display: inline-block; cursor: pointer; border: 2px solid #6c757d; border-radius: 8px; padding: 8px; background: #fff;"
+                                                 onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                                 title="انقر للمعاينة الكاملة">
+                                                <i class="fas fa-file text-secondary" style="font-size: 2.5em;"></i>
+                                                <div style="position: absolute; top: 3px; right: 3px; background: rgba(108, 117, 125, 0.8); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px;">
+                                                    👁️
+                                                </div>
+                                                <br><small class="text-muted">ملف مستند</small>
+                                            </div>
+                                        </div>
+                                    {% endif %}
                                 {% endif %}
 
                                 <div class="btn-group btn-group-sm" role="group">
                                     {% if doc.filename %}
-                                        <button onclick="showQuickPreview({{ doc.id }}, '{{ (doc.original_filename or doc.filename)|replace("'", "\\'") }}')" class="btn btn-outline-primary" title="معاينة سريعة">👁️</button>
+                                        <button onclick="showQuickPreview({{ doc.id }}, '{{ doc.filename|replace("'", "\\'")}}')"
+                                class="btn btn-outline-primary" title="معاينة سريعة">👁️</button>
                                         <a href="/documents/{{ doc.id }}/download" class="btn btn-outline-success" title="تحميل">📥</a>
                                     {% endif %}
                                     <a href="/edit_document/{{ doc.id }}" class="btn btn-outline-warning" title="تعديل">✏️</a>

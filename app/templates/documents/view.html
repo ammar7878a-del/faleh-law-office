@@ -139,9 +139,10 @@
             <div class="card-body">
                 {% if document.file_type == 'pdf' %}
                     <div class="text-center">
-                        <iframe src="{{ url_for('documents.download', id=document.id) }}" 
+                        <iframe src="{{ url_for('documents.download', id=document.id, preview='true') }}" 
                                 width="100%" height="600px" 
-                                style="border: 1px solid #ddd;">
+                                style="border: 1px solid #ddd;"
+                                type="application/pdf">
                             <p>متصفحك لا يدعم عرض ملفات PDF. 
                                <a href="{{ url_for('documents.download', id=document.id) }}">انقر هنا لتحميل الملف</a>
                             </p>
@@ -149,10 +150,11 @@
                     </div>
                 {% elif document.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
                     <div class="text-center">
-                        <img src="{{ url_for('documents.download', id=document.id) }}" 
+                        <img src="{{ url_for('documents.download', id=document.id, preview='true') }}" 
                              class="img-fluid" 
                              alt="{{ document.original_filename }}"
-                             style="max-height: 600px;">
+                             style="max-height: 600px;"
+                             onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/image-error.png') }}';">
                     </div>
                 {% else %}
                     <div class="text-center py-5">

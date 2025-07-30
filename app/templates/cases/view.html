@@ -199,6 +199,123 @@
             </div>
         </div>
     </div>
+
+    <!-- Case Documents -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">مستندات القضية</h5>
+        </div>
+        <div class="card-body">
+            {% if case.documents %}
+                <div class="row">
+                    {% for document in case.documents %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-body text-center">
+                                <!-- Document Preview -->
+                                <div class="mb-3">
+                                    {% if document.file_type.lower() in ['jpg', 'jpeg', 'png', 'gif'] %}
+                                        <img src="{{ url_for('documents.download', id=document.id, preview='true') }}" 
+                                             class="img-thumbnail" 
+                                             style="max-width: 100px; max-height: 100px; object-fit: cover;"
+                                             alt="{{ document.original_filename }}">
+                                    {% elif document.file_type.lower() == 'pdf' %}
+                                        <div class="text-danger">
+                                            <i class="fas fa-file-pdf fa-4x"></i>
+                                        </div>
+                                    {% elif document.file_type.lower() in ['doc', 'docx'] %}
+                                        <div class="text-primary">
+                                            <i class="fas fa-file-word fa-4x"></i>
+                                        </div>
+                                    {% elif document.file_type.lower() in ['xls', 'xlsx'] %}
+                                        <div class="text-success">
+                                            <i class="fas fa-file-excel fa-4x"></i>
+                                        </div>
+                                    {% elif document.file_type.lower() in ['ppt', 'pptx'] %}
+                                        <div class="text-warning">
+                                            <i class="fas fa-file-powerpoint fa-4x"></i>
+                                        </div>
+                                    {% else %}
+                                        <div class="text-secondary">
+                                            <i class="fas fa-file fa-4x"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Document Info -->
+                                <h6 class="card-title text-truncate" title="{{ document.original_filename }}">
+                                    {{ document.original_filename }}
+                                </h6>
+                                <p class="card-text small text-muted mb-2">
+                                    <span class="badge bg-secondary me-1">{{ document.file_type.upper() if document.file_type else 'N/A' }}</span>
+                                    {{ document.file_size | filesizeformat }}
+                                </p>
+                                <p class="card-text small text-muted">
+                                    {{ document.created_at.strftime('%Y-%m-%d') }}
+                                </p>
+                                
+                                <!-- Actions -->
+                                <div class="btn-group btn-group-sm w-100">
+                                    <button type="button" class="btn btn-outline-primary" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#previewModal{{ document.id }}" 
+                                            title="معاينة">
+                                        <i class="fas fa-eye"></i> معاينة
+                                    </button>
+                                    <a href="{{ url_for('documents.download', id=document.id) }}" 
+                                       class="btn btn-outline-success" 
+                                       title="تحميل">
+                                        <i class="fas fa-download"></i> تحميل
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Preview Modal for {{ document.original_filename }} -->
+                    <div class="modal fade" id="previewModal{{ document.id }}" tabindex="-1" aria-labelledby="previewModalLabel{{ document.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-xl">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="previewModalLabel{{ document.id }}">{{ document.original_filename }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body p-0">
+                                    {% if document.file_type.lower() in ['pdf'] %}
+                                        <iframe src="{{ url_for('documents.download', id=document.id, preview='true') }}" width="100%" height="800px" style="border: none;"></iframe>
+                                    {% elif document.file_type.lower() in ['jpg', 'jpeg', 'png', 'gif'] %}
+                                        <img src="{{ url_for('documents.download', id=document.id, preview='true') }}" class="img-fluid" alt="{{ document.original_filename }}" style="max-width: 100%; height: auto;">
+                                    {% else %}
+                                        <div class="text-center text-muted p-5">
+                                            <i class="fas fa-file fa-3x mb-3"></i>
+                                            <p>معاينة غير متوفرة لهذا النوع من الملفات</p>
+                                            <a href="{{ url_for('documents.download', id=document.id) }}" class="btn btn-primary mt-3">
+                                                <i class="fas fa-download me-1"></i>تحميل الملف
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    <a href="{{ url_for('documents.download', id=document.id) }}" class="btn btn-primary">
+                                        <i class="fas fa-download me-1"></i>تحميل
+                                    </a>
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted text-center mb-0">لا توجد مستندات مرفقة بهذه القضية</p>
+            {% endif %}
+            <div class="text-center mt-3">
+                <a href="{{ url_for('documents.upload') }}?case_id={{ case.id }}" class="btn btn-primary">
+                    <i class="fas fa-upload me-1"></i>رفع مستند جديد
+                </a>
+            </div>
+        </div>
+    </div>
     
     <!-- Sidebar -->
     <div class="col-lg-4">

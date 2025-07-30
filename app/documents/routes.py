@@ -138,8 +138,16 @@ def download(id):
         flash('الملف غير موجود', 'danger')
         return redirect(url_for('documents.view', id=id))
     
-    return send_file(document.file_path, as_attachment=True, 
-                    download_name=document.original_filename)
+    if request.args.get('preview') == 'true':
+        # For preview, redirect to the uploads URL
+        return redirect(url_for('uploaded_file', filename=os.path.basename(document.file_path)))
+    else:
+        # For download, send as attachment
+        response = send_file(document.file_path, as_attachment=True,
+                          download_name=document.original_filename)
+        response.headers['Content-Type'] = 'application/octet-stream'
+        response.headers['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{document.original_filename}'
+        return response
 
 @bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
