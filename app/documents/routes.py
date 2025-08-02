@@ -1,6 +1,9 @@
 import os
 import uuid
-from flask import render_template, redirect, url_for, flash, request, current_app, send_file, abort
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
@@ -69,42 +72,40 @@ def upload():
     if form.validate_on_submit():
         file = form.file.data
         if file and allowed_file(file.filename):
-            # Generate unique filename
-            filename = str(uuid.uuid4()) + '.' + file.filename.rsplit('.', 1)[1].lower()
-            
-            # Create upload directory if it doesn't exist
-            upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'documents')
-            if not os.path.exists(upload_dir):
-                os.makedirs(upload_dir)
-            
-            # Save file
-            file_path = os.path.join(upload_dir, filename)
-            file.save(file_path)
-            
-            # Get file size
-            file_size = os.path.getsize(file_path)
-            
-            # Create document record
-            document = Document(
-                filename=filename,
-                original_filename=secure_filename(file.filename),
-                file_path=file_path,
-                file_size=file_size,
-                file_type=file.filename.rsplit('.', 1)[1].lower(),
-                document_type=form.document_type.data,
-                description=form.description.data,
-                tags=form.tags.data,
-                is_confidential=form.is_confidential.data,
-                case_id=form.case_id.data if form.case_id.data != 0 else None,
-                client_id=form.client_id.data if form.client_id.data != 0 else None,
-                uploaded_by=current_user.id
-            )
-            
-            db.session.add(document)
-            db.session.commit()
-            
-            flash(f'تم رفع المستند "{document.original_filename}" بنجاح', 'success')
-            return redirect(url_for('documents.view', id=document.id))
+            try:
+                # Upload to Cloudinary
+                upload_result = cloudinary.uploader.upload(
+                    file,
+                    folder=f"law_firm/{current_user.id}/documents",
+                    resource_type='auto'
+                )
+                
+                # Create document record
+                document = Document(
+                    public_id=upload_result['public_id'],
+                    original_filename=secure_filename(file.filename),
+                    file_url=upload_result['secure_url'],
+                    resource_type=upload_result['resource_type'],
+                    file_size=upload_result['bytes'],
+                    file_type=upload_result['format'],
+                    document_type=form.document_type.data,
+                    description=form.description.data,
+                    tags=form.tags.data,
+                    is_confidential=form.is_confidential.data,
+                    case_id=form.case_id.data if form.case_id.data != 0 else None,
+                    client_id=form.client_id.data if form.client_id.data != 0 else None,
+                    uploaded_by=current_user.id
+                )
+                
+                db.session.add(document)
+                db.session.commit()
+                
+                flash(f'تم رفع المستند "{document.original_filename}" بنجاح إلى السحابة', 'success')
+                return redirect(url_for('documents.view', id=document.id))
+
+            except Exception as e:
+                flash(f'حدث خطأ أثناء الرفع إلى السحابة: {e}', 'danger')
+                return redirect(url_for('documents.upload'))
         else:
             flash('نوع الملف غير مدعوم', 'danger')
     
@@ -134,20 +135,8 @@ def download(id):
         flash('ليس لديك صلاحية لتحميل هذا المستند السري', 'danger')
         return redirect(url_for('documents.index'))
     
-    if not os.path.exists(document.file_path):
-        flash('الملف غير موجود', 'danger')
-        return redirect(url_for('documents.view', id=id))
-    
-    if request.args.get('preview') == 'true':
-        # For preview, redirect to the uploads URL
-        return redirect(url_for('uploaded_file', filename=os.path.basename(document.file_path)))
-    else:
-        # For download, send as attachment
-        response = send_file(document.file_path, as_attachment=True,
-                          download_name=document.original_filename)
-        response.headers['Content-Type'] = 'application/octet-stream'
-        response.headers['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{document.original_filename}'
-        return response
+    # Redirect to Cloudinary URL for download
+    return redirect(document.file_url)
 
 @bp.route('/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -195,13 +184,16 @@ def delete(id):
         flash('ليس لديك صلاحية لحذف هذا المستند', 'danger')
         return redirect(url_for('documents.view', id=id))
     
-    # Delete file from filesystem
-    if os.path.exists(document.file_path):
-        os.remove(document.file_path)
-    
-    document_name = document.original_filename
-    db.session.delete(document)
-    db.session.commit()
-    
-    flash(f'تم حذف المستند "{document_name}" بنجاح', 'success')
+    try:
+        # Delete from Cloudinary
+        cloudinary.uploader.destroy(document.public_id, resource_type=document.resource_type)
+        
+        document_name = document.original_filename
+        db.session.delete(document)
+        db.session.commit()
+        
+        flash(f'تم حذف المستند "{document_name}" من السحابة بنجاح', 'success')
+    except Exception as e:
+        flash(f'حدث خطأ أثناء الحذف من السحابة: {e}', 'danger')
+
     return redirect(url_for('documents.index'))

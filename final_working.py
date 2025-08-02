@@ -16,6 +16,28 @@ import threading
 import time
 import json
 
+# إعداد Cloudinary
+try:
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
+    from cloudinary.utils import cloudinary_url
+    
+    # تكوين Cloudinary
+    cloudinary.config(
+        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        api_key=os.environ.get('CLOUDINARY_API_KEY'),
+        api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+        secure=True
+    )
+    
+    CLOUDINARY_ENABLED = bool(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+    print(f"🌤️ Cloudinary: {'مُفعل ✅' if CLOUDINARY_ENABLED else 'غير مُفعل ⚠️'}")
+    
+except ImportError:
+    print("⚠️ مكتبة Cloudinary غير مثبتة - سيتم استخدام التخزين المحلي")
+    CLOUDINARY_ENABLED = False
+
 app = Flask(__name__)
 
 # تكوين مجلد الرفع
@@ -32,7 +54,15 @@ for folder in ['documents', 'logos', 'avatars']:
 @app.route('/uploads/<path:filename>')
 @login_required
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    # التحقق من وجود الملف في قاعدة البيانات
+    document = ClientDocument.query.filter_by(filename=filename).first()
+    
+    if document and document.is_cloudinary:
+        # إذا كان الملف محفوظ في Cloudinary، إعادة توجيه إلى URL الخاص به
+        return redirect(document.filename)
+    else:
+        # إذا كان الملف محفوظ محلياً، عرضه من المجلد المحلي
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # نظام تسجيل الدخول الحقيقي
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -241,6 +271,70 @@ def safe_filename_with_timestamp(original_filename):
         final_filename = f"{timestamp}_{safe_name}"
 
     return final_filename
+
+def upload_file_to_cloudinary(file, folder="documents"):
+    """
+    رفع ملف إلى Cloudinary مع إرجاع URL الآمن
+    """
+    if not CLOUDINARY_ENABLED:
+        return None, "Cloudinary غير مُفعل"
+    
+    try:
+        # إنشاء اسم ملف آمن
+        safe_name = safe_filename_with_timestamp(file.filename)
+        if not safe_name:
+            return None, "اسم الملف غير صالح"
+        
+        # رفع الملف إلى Cloudinary
+        result = cloudinary.uploader.upload(
+            file,
+            folder=folder,
+            public_id=safe_name.rsplit('.', 1)[0],  # إزالة الامتداد من public_id
+            resource_type="auto",  # تحديد نوع الملف تلقائياً
+            overwrite=True,
+            invalidate=True
+        )
+        
+        return result['secure_url'], None
+        
+    except Exception as e:
+        print(f"❌ خطأ في رفع الملف إلى Cloudinary: {str(e)}")
+        return None, f"خطأ في الرفع: {str(e)}"
+
+def save_file_locally_or_cloudinary(file, folder="documents"):
+    """
+    حفظ الملف محلياً أو في Cloudinary حسب التوفر
+    """
+    # محاولة الرفع إلى Cloudinary أولاً
+    if CLOUDINARY_ENABLED:
+        cloudinary_url, error = upload_file_to_cloudinary(file, folder)
+        if cloudinary_url:
+            print(f"✅ تم رفع الملف إلى Cloudinary: {cloudinary_url}")
+            return cloudinary_url, True  # True يعني cloudinary
+        else:
+            print(f"⚠️ فشل الرفع إلى Cloudinary: {error}")
+    
+    # التراجع إلى الحفظ المحلي
+    try:
+        filename = safe_filename_with_timestamp(file.filename)
+        if not filename:
+            return None, False
+        
+        # إنشاء مجلد الرفع إذا لم يكن موجوداً
+        upload_folder = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        
+        # حفظ الملف محلياً
+        file_path = os.path.join(upload_folder, filename)
+        file.save(file_path)
+        
+        print(f"💾 تم حفظ الملف محلياً: {filename}")
+        return filename, False  # False يعني محلي
+        
+    except Exception as e:
+        print(f"❌ خطأ في حفظ الملف محلياً: {str(e)}")
+        return None, False
 
 def riyal_symbol():
     """رمز الريال السعودي القديم المألوف"""
@@ -524,9 +618,10 @@ class ClientDocument(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     document_type = db.Column(db.String(50), nullable=False)
     description = db.Column(db.String(200))
-    filename = db.Column(db.String(255))  # اسم الملف المرفوع
+    filename = db.Column(db.String(255))  # اسم الملف المرفوع أو URL لـ Cloudinary
     original_filename = db.Column(db.String(255))  # الاسم الأصلي للملف
     file_size = db.Column(db.Integer)  # حجم الملف بالبايت
+    is_cloudinary = db.Column(db.Boolean, default=False)  # هل الملف محفوظ في Cloudinary
     client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=False)
     case_id = db.Column(db.Integer, db.ForeignKey('case.id'))  # ربط المستند بقضية
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -735,7 +830,8 @@ class OfficeSettings(db.Model):
     website = db.Column(db.String(200))  # الموقع الإلكتروني
 
     # معلومات إضافية
-    logo_path = db.Column(db.String(200))  # مسار الشعار
+    logo_path = db.Column(db.String(200))  # مسار الشعار أو URL لـ Cloudinary
+    is_logo_cloudinary = db.Column(db.Boolean, default=False)  # هل الشعار محفوظ في Cloudinary
     established_year = db.Column(db.Integer)  # سنة التأسيس
     description = db.Column(db.Text)  # وصف المكتب
 
@@ -4414,17 +4510,28 @@ def add_client():
                 if has_file:
                     file = request.files[file_field]
                     if file and allowed_file(file.filename):
-                        # إنشاء اسم ملف آمن مع timestamp
-                        filename = safe_filename_with_timestamp(file.filename)
-
-                        # حفظ الملف
-                        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                        file.save(file_path)
-
-                        # حفظ معلومات الملف في قاعدة البيانات
-                        doc.filename = filename
-                        doc.original_filename = file.filename
-                        doc.file_size = os.path.getsize(file_path)
+                        # رفع الملف إلى Cloudinary أو حفظه محلياً
+                        file_url, is_cloudinary = save_file_locally_or_cloudinary(file, "documents")
+                        
+                        if file_url:
+                            # حفظ معلومات الملف في قاعدة البيانات
+                            if is_cloudinary:
+                                doc.filename = file_url  # URL كامل لـ Cloudinary
+                                doc.is_cloudinary = True
+                            else:
+                                doc.filename = file_url  # اسم الملف المحلي
+                                doc.is_cloudinary = False
+                                # حساب حجم الملف للملفات المحلية فقط
+                                try:
+                                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_url)
+                                    doc.file_size = os.path.getsize(file_path)
+                                except:
+                                    doc.file_size = 0
+                            
+                            doc.original_filename = file.filename
+                        else:
+                            flash(f'فشل في رفع الملف {file.filename}', 'error')
+                            continue
 
                 db.session.add(doc)
                 documents_added += 1
@@ -6510,15 +6617,28 @@ def add_document(client_id):
         if 'document_file' in request.files:
             file = request.files['document_file']
             if file and file.filename != '' and allowed_file(file.filename):
-                # إنشاء اسم ملف آمن مع timestamp
-                filename = safe_filename_with_timestamp(file.filename)
-
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-
-                doc.filename = filename
-                doc.original_filename = file.filename
-                doc.file_size = os.path.getsize(file_path)
+                # رفع الملف إلى Cloudinary أو حفظه محلياً
+                file_url, is_cloudinary = save_file_locally_or_cloudinary(file, "documents")
+                
+                if file_url:
+                    # حفظ معلومات الملف في قاعدة البيانات
+                    if is_cloudinary:
+                        doc.filename = file_url  # URL كامل لـ Cloudinary
+                        doc.is_cloudinary = True
+                    else:
+                        doc.filename = file_url  # اسم الملف المحلي
+                        doc.is_cloudinary = False
+                        # حساب حجم الملف للملفات المحلية فقط
+                        try:
+                            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_url)
+                            doc.file_size = os.path.getsize(file_path)
+                        except:
+                            doc.file_size = 0
+                    
+                    doc.original_filename = file.filename
+                else:
+                    flash(f'فشل في رفع الملف {file.filename}', 'error')
+                    return redirect(url_for('add_document', client_id=client_id))
 
         db.session.add(doc)
         db.session.commit()
@@ -6616,19 +6736,37 @@ def edit_document(doc_id):
             if file and file.filename != '' and allowed_file(file.filename):
                 # حذف الملف القديم
                 if doc.filename:
-                    old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], doc.filename)
-                    if os.path.exists(old_file_path):
-                        os.remove(old_file_path)
+                    if hasattr(doc, 'is_cloudinary') and doc.is_cloudinary:
+                        # حذف من Cloudinary (يتطلب تنفيذ دالة منفصلة)
+                        pass  # TODO: إضافة دالة حذف من Cloudinary
+                    else:
+                        # حذف الملف المحلي
+                        old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], doc.filename)
+                        if os.path.exists(old_file_path):
+                            os.remove(old_file_path)
 
-                # حفظ الملف الجديد
-                filename = safe_filename_with_timestamp(file.filename)
-
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-
-                doc.filename = filename
-                doc.original_filename = file.filename
-                doc.file_size = os.path.getsize(file_path)
+                # رفع الملف الجديد إلى Cloudinary أو حفظه محلياً
+                file_url, is_cloudinary = save_file_locally_or_cloudinary(file, "documents")
+                
+                if file_url:
+                    # حفظ معلومات الملف في قاعدة البيانات
+                    if is_cloudinary:
+                        doc.filename = file_url  # URL كامل لـ Cloudinary
+                        doc.is_cloudinary = True
+                    else:
+                        doc.filename = file_url  # اسم الملف المحلي
+                        doc.is_cloudinary = False
+                        # حساب حجم الملف للملفات المحلية فقط
+                        try:
+                            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_url)
+                            doc.file_size = os.path.getsize(file_path)
+                        except:
+                            doc.file_size = 0
+                    
+                    doc.original_filename = file.filename
+                else:
+                    flash(f'فشل في رفع الملف {file.filename}', 'error')
+                    return redirect(url_for('edit_document', doc_id=doc_id))
 
         db.session.commit()
         flash('تم تحديث المستند بنجاح', 'success')
@@ -11006,25 +11144,30 @@ def update_office_settings():
             if logo_file and logo_file.filename and allowed_file(logo_file.filename):
                 # حذف الشعار القديم إذا كان موجوداً
                 if settings.logo_path:
-                    old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], settings.logo_path)
-                    if os.path.exists(old_logo_path):
-                        os.remove(old_logo_path)
+                    if hasattr(settings, 'is_logo_cloudinary') and settings.is_logo_cloudinary:
+                        # حذف من Cloudinary (يتطلب تنفيذ دالة منفصلة)
+                        pass  # TODO: إضافة دالة حذف من Cloudinary
+                    else:
+                        # حذف الملف المحلي
+                        old_logo_path = os.path.join(app.config['UPLOAD_FOLDER'], settings.logo_path)
+                        if os.path.exists(old_logo_path):
+                            os.remove(old_logo_path)
 
-                # حفظ الشعار الجديد
-                filename = safe_filename_with_timestamp(logo_file.filename)
-                filename = f"logo_{filename}"  # إضافة بادئة logo
-
-                # إنشاء مجلد logos إذا لم يكن موجوداً
-                logos_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'logos')
-                if not os.path.exists(logos_folder):
-                    os.makedirs(logos_folder)
-
-                logo_path = os.path.join(logos_folder, filename)
-                logo_file.save(logo_path)
-
-                # حفظ المسار النسبي في قاعدة البيانات
-                settings.logo_path = f"logos/{filename}"
-                flash('تم رفع الشعار بنجاح', 'success')
+                # رفع الشعار إلى Cloudinary أو حفظه محلياً
+                file_url, is_cloudinary = save_file_locally_or_cloudinary(logo_file, "logos")
+                
+                if file_url:
+                    # حفظ معلومات الشعار في قاعدة البيانات
+                    if is_cloudinary:
+                        settings.logo_path = file_url  # URL كامل لـ Cloudinary
+                        settings.is_logo_cloudinary = True
+                    else:
+                        settings.logo_path = f"logos/{file_url}"  # المسار المحلي
+                        settings.is_logo_cloudinary = False
+                    
+                    flash('تم رفع الشعار بنجاح', 'success')
+                else:
+                    flash('فشل في رفع الشعار', 'error')
 
         # تحديث البيانات
         settings.office_name = request.form.get('office_name', '').strip()

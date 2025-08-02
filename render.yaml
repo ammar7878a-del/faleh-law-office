@@ -16,6 +16,10 @@ services:
         generateValue: true
       - key: FLASK_ENV
         value: production
+    disks:
+      - name: faleh-uploads
+        mountPath: /app/faleh/uploads
+        sizeGB: 1
     healthCheckPath: /
     
 databases:

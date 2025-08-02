@@ -138,9 +138,10 @@ class Invoice(db.Model):
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(255), nullable=False)
+    public_id = db.Column(db.String(255), nullable=False, unique=True)
     original_filename = db.Column(db.String(255), nullable=False)
-    file_path = db.Column(db.String(500), nullable=False)
+    file_url = db.Column(db.String(500), nullable=False)
+    resource_type = db.Column(db.String(50), default='raw')
     file_size = db.Column(db.Integer)
     file_type = db.Column(db.String(50))
     document_type = db.Column(db.String(50))  # contract, evidence, correspondence, etc.
