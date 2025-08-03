@@ -431,8 +431,7 @@ def run_migrations():
                     print(f"--- [MIGRATION] Applying: Adding column '{column_name_2}' to table '{table_name_2}'...")
                     with db.engine.connect() as connection:
                         connection.execute(text("COMMIT;")) # End any existing transaction
-                        connection.execute(text(f'ALTER TABLE {table_name_2} ADD COLUMN {column_name_2} BOOLEAN DEFAULT FALSE;
-'))
+                        connection.execute(text(f'ALTER TABLE {table_name_2} ADD COLUMN {column_name_2} BOOLEAN DEFAULT FALSE;'))
                     print(f"--- [MIGRATION] Success for {table_name_2}.")
                 else:
                     print(f"--- [MIGRATION] Column '{column_name_2}' already exists in '{table_name_2}'.")
