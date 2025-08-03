@@ -21,7 +21,7 @@ services:
         mountPath: /app/faleh/uploads
         sizeGB: 1
     healthCheckPath: /
-    
+
 databases:
   - name: faleh-postgres
     databaseName: faleh_db
