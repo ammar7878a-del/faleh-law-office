@@ -393,6 +393,42 @@ def get_navbar_brand_global():
 
 db = SQLAlchemy(app)
 
+def run_migrations():
+    '''Applies simple database migrations on startup.'''
+    with app.app_context():
+        try:
+            from sqlalchemy import inspect
+            from sqlalchemy.exc import ProgrammingError
+
+            print("--- [MIGRATION] Checking database schema...")
+            
+            inspector = inspect(db.engine)
+            table_name = 'office_settings'
+            column_name = 'is_logo_cloudinary'
+
+            if not inspector.has_table(table_name):
+                print(f"--- [MIGRATION] Table '{table_name}' not found. It will be created by db.create_all().")
+                return
+
+            columns = [c['name'] for c in inspector.get_columns(table_name)]
+            if column_name in columns:
+                print(f"--- [MIGRATION] Schema is up to date.")
+                return
+
+            print(f"--- [MIGRATION] Applying: Adding column '{column_name}' to table '{table_name}'...")
+            
+            with db.engine.connect() as connection:
+                connection.execute(db.text("COMMIT;"))
+                connection.execute(db.text(f'ALTER TABLE {table_name} ADD COLUMN {column_name} BOOLEAN DEFAULT FALSE;'))
+            
+            print("--- [MIGRATION] Success!")
+
+        except Exception as e:
+            print(f"--- [MIGRATION] An error occurred: {e}")
+            pass
+
+run_migrations()
+
 # سيتم إنشاء الجداول في النهاية بعد تعريف جميع النماذج
 
 # نظام النسخ الاحتياطي التلقائي
