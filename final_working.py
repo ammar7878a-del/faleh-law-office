@@ -397,34 +397,53 @@ def run_migrations():
     '''Applies simple database migrations on startup.'''
     with app.app_context():
         try:
-            from sqlalchemy import inspect
+            from sqlalchemy import inspect, text
             from sqlalchemy.exc import ProgrammingError
 
             print("--- [MIGRATION] Checking database schema...")
             
             inspector = inspect(db.engine)
-            table_name = 'office_settings'
-            column_name = 'is_logo_cloudinary'
 
-            if not inspector.has_table(table_name):
-                print(f"--- [MIGRATION] Table '{table_name}' not found. It will be created by db.create_all().")
-                return
-
-            columns = [c['name'] for c in inspector.get_columns(table_name)]
-            if column_name in columns:
-                print(f"--- [MIGRATION] Schema is up to date.")
-                return
-
-            print(f"--- [MIGRATION] Applying: Adding column '{column_name}' to table '{table_name}'...")
+            # --- Migration 1: office_settings.is_logo_cloudinary ---
+            table_name_1 = 'office_settings'
+            column_name_1 = 'is_logo_cloudinary'
             
-            with db.engine.connect() as connection:
-                connection.execute(db.text("COMMIT;"))
-                connection.execute(db.text(f'ALTER TABLE {table_name} ADD COLUMN {column_name} BOOLEAN DEFAULT FALSE;'))
-            
-            print("--- [MIGRATION] Success!")
+            if inspector.has_table(table_name_1):
+                columns_1 = [c['name'] for c in inspector.get_columns(table_name_1)]
+                if column_name_1 not in columns_1:
+                    print(f"--- [MIGRATION] Applying: Adding column '{column_name_1}' to table '{table_name_1}'...")
+                    with db.engine.connect() as connection:
+                        connection.execute(text("COMMIT;")) # End any existing transaction
+                        connection.execute(text(f'ALTER TABLE {table_name_1} ADD COLUMN {column_name_1} BOOLEAN DEFAULT FALSE;'))
+                    print(f"--- [MIGRATION] Success for {table_name_1}.")
+                else:
+                    print(f"--- [MIGRATION] Column '{column_name_1}' already exists in '{table_name_1}'.")
+            else:
+                print(f"--- [MIGRATION] Table '{table_name_1}' not found. It will be created by db.create_all().")
+
+            # --- Migration 2: client_document.is_cloudinary ---
+            table_name_2 = 'client_document'
+            column_name_2 = 'is_cloudinary'
+
+            if inspector.has_table(table_name_2):
+                columns_2 = [c['name'] for c in inspector.get_columns(table_name_2)]
+                if column_name_2 not in columns_2:
+                    print(f"--- [MIGRATION] Applying: Adding column '{column_name_2}' to table '{table_name_2}'...")
+                    with db.engine.connect() as connection:
+                        connection.execute(text("COMMIT;")) # End any existing transaction
+                        connection.execute(text(f'ALTER TABLE {table_name_2} ADD COLUMN {column_name_2} BOOLEAN DEFAULT FALSE;
+'))
+                    print(f"--- [MIGRATION] Success for {table_name_2}.")
+                else:
+                    print(f"--- [MIGRATION] Column '{column_name_2}' already exists in '{table_name_2}'.")
+            else:
+                print(f"--- [MIGRATION] Table '{table_name_2}' not found. It will be created by db.create_all().")
+
+            print("--- [MIGRATION] Schema check complete.")
 
         except Exception as e:
             print(f"--- [MIGRATION] An error occurred: {e}")
+            db.session.rollback()
             pass
 
 run_migrations()
